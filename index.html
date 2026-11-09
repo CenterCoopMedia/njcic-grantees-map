@@ -10,14 +10,14 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://njcivicinfo.org/map/">
     <meta property="og:title" content="NJ Civic Information Consortium Grantees Map">
-    <meta property="og:description" content="Explore 76+ journalism and civic engagement projects funded by NJCIC across New Jersey. More than $12 million invested in local news.">
+    <meta property="og:description" content="Explore 100+ journalism and civic engagement projects funded by NJCIC across New Jersey. More than $15 million invested in local news.">
     <meta property="og:image" content="https://njcivicinfo.org/wp-content/uploads/2024/09/NJCIC-Full-Text-Logo-300x150.png">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://njcivicinfo.org/map/">
     <meta property="twitter:title" content="NJ Civic Information Consortium Grantees Map">
-    <meta property="twitter:description" content="Explore 76+ journalism and civic engagement projects funded by NJCIC across New Jersey. More than $12 million invested in local news.">
+    <meta property="twitter:description" content="Explore 100+ journalism and civic engagement projects funded by NJCIC across New Jersey. More than $15 million invested in local news.">
     <meta property="twitter:image" content="https://njcivicinfo.org/wp-content/uploads/2024/09/NJCIC-Full-Text-Logo-300x150.png">
 
     <!-- Additional SEO -->
@@ -228,8 +228,8 @@
             transform: scale(1.15);
         }
 
-        /* New organization marker styling */
-        .custom-marker.new-org {
+        /* Current grant marker styling */
+        .custom-marker.current-grant {
             background: linear-gradient(135deg, #f34213 0%, #183642 100%);
             box-shadow: 0 4px 12px rgba(243, 66, 19, 0.4);
             animation: pulse-new 2s ease-in-out infinite;
@@ -442,6 +442,7 @@
                         <option value="2023">2023</option>
                         <option value="2024">2024</option>
                         <option value="2025">2025</option>
+                        <option value="2026">2026</option>
                     </select>
                 </div>
                 <div class="flex-1 min-w-[140px]">
@@ -460,10 +461,9 @@
                     <label for="status-filter" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
                     <select id="status-filter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc8d2] focus:border-transparent focus:outline-none" aria-describedby="status-help">
                         <option value="all">All</option>
-                        <option value="active">Active (2024+)</option>
-                        <option value="completed">Completed (ended)</option>
+                        <option value="current">Current</option>
                     </select>
-                    <span id="status-help" class="sr-only">Active means grant period includes 2024 or later. Completed means grant period has ended.</span>
+                    <span id="status-help" class="sr-only">Current shows only grantees with a current grant. All shows every grantee.</span>
                 </div>
                 <button id="reset-filters" class="px-4 md:px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2" aria-label="Reset all filters">
                     Reset
@@ -486,19 +486,16 @@
         <div class="bg-white rounded-lg shadow-md p-4 mb-4">
             <h3 class="text-sm font-bold text-gray-800 mb-3">Map key</h3>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <!-- Single Marker -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Grant markers -->
                 <div>
                     <div class="flex items-center mb-2">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white mr-2" style="background: linear-gradient(135deg, #2dc8d2 0%, #183642 100%); border: 2px solid white;">CC</div>
-                        <span class="text-gray-700 text-sm">Single grantee</span>
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white mr-2" style="background: linear-gradient(135deg, #f34213 0%, #183642 100%); border: 2px solid white; box-shadow: 0 0 8px rgba(243, 66, 19, 0.5);">CG</div>
+                        <span class="text-gray-700 text-sm">Current grant</span>
                     </div>
                     <div class="flex items-center mb-2">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white mr-2 relative" style="background: linear-gradient(135deg, #f34213 0%, #183642 100%); border: 2px solid white; box-shadow: 0 0 8px rgba(243, 66, 19, 0.5);">
-                            <span>NW</span>
-                            <span class="absolute -top-1 -right-1 bg-[#f34213] text-white text-[0.4rem] font-bold px-1 rounded">NEW</span>
-                        </div>
-                        <span class="text-gray-700 text-sm">New grantee</span>
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white mr-2" style="background: linear-gradient(135deg, #2dc8d2 0%, #183642 100%); border: 2px solid white;">CG</div>
+                        <span class="text-gray-700 text-sm">Completed grant</span>
                     </div>
                 </div>
 
@@ -517,27 +514,6 @@
                         <div class="flex items-center">
                             <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white mr-2" style="background-color: rgba(24, 54, 66, 0.8);">50+</div>
                             <span class="text-gray-700 text-sm">Large</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Status -->
-                <div>
-                    <div class="text-xs font-semibold text-gray-600 mb-2">Status:</div>
-                    <div class="space-y-2">
-                        <div>
-                            <div class="flex items-center mb-1">
-                                <div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
-                                <span class="text-xs font-medium text-gray-700">Active</span>
-                            </div>
-                            <div class="text-xs text-gray-500 ml-5">Grant period: 2024+</div>
-                        </div>
-                        <div>
-                            <div class="flex items-center mb-1">
-                                <div class="w-3 h-3 rounded-full bg-gray-400 mr-2"></div>
-                                <span class="text-xs font-medium text-gray-700">Completed</span>
-                            </div>
-                            <div class="text-xs text-gray-500 ml-5">Grant period ended</div>
                         </div>
                     </div>
                 </div>
@@ -666,7 +642,7 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
     <!-- App JS -->
-    <script src="js/app.js?v=20260902a"></script>
+    <script src="js/app.js?v=20261109a"></script>
 
 </body>
 </html>

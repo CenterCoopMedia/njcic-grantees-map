@@ -10,26 +10,148 @@ let currentMarkerIndex = 0;
 const IMPACT_TOTAL_FUNDING = 11880438;
 const IMPACT_TOTAL_GRANTS = 135;
 
-console.log('App.js loaded - version 15');
+console.log('App.js loaded - version 17');
+
+// Data written daily by sync.php from Airtable
+const DATA_URL = 'data/grantees.json';
+
+// Focus areas offered in the filter. These match the options of the
+// "Focus Area" field in Airtable.
+const FOCUS_AREAS = [
+    'Civic Engagement',
+    'Civic News & Information',
+    'Journalism Pipeline',
+    'Capacity Building'
+];
+
+// Older Airtable labels mapped to the new Focus Area options, so grantees
+// still filter correctly until every record carries the new values.
+const LEGACY_FOCUS_AREA_MAP = {
+    'civic engagement in nj communities': 'Civic Engagement',
+    'community engagement': 'Civic Engagement',
+    'civic news and information reporting': 'Civic News & Information',
+    'journalism pipeline': 'Journalism Pipeline',
+    'blue engine tech & sustainability accelerator grant': 'Capacity Building'
+};
+
+// Map any focus area label (new or legacy) to one of FOCUS_AREAS.
+function normalizeFocusArea(value) {
+    const label = String(value || '').trim();
+    if (!label) return null;
+    const exact = FOCUS_AREAS.find(a => a.toLowerCase() === label.toLowerCase());
+    if (exact) return exact;
+    return LEGACY_FOCUS_AREA_MAP[label.toLowerCase()] || label;
+}
+
+// Split a focus area value (string joined with "; ", or an array) into
+// normalized labels with duplicates removed.
+function parseFocusAreas(value) {
+    const parts = Array.isArray(value) ? value : String(value || '').split(';');
+    const result = [];
+    parts.forEach(part => {
+        const area = normalizeFocusArea(part);
+        if (area && !result.includes(area)) result.push(area);
+    });
+    return result;
+}
+
+// Interpret the Airtable "Current" field: a checkbox (true), or a text,
+// select or formula value such as "Yes" / "Current".
+function isTruthyFlag(value) {
+    if (Array.isArray(value)) return value.some(isTruthyFlag);
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value > 0;
+    if (typeof value === 'string') {
+        return ['yes', 'y', 'true', '1', 'current', 'checked', 'x'].includes(value.trim().toLowerCase());
+    }
+    return false;
+}
+
+let usingCurrentFallback = false;
+
+async function fetchJson(url) {
+    const response = await fetch(`${url}?v=${Date.now()}`);   // cache-bust after each sync
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+}
+
+async function loadGranteeData() {
+    return fetchJson(DATA_URL);
+}
+
+// "$100,000"-style label
+function money(n) {
+    return `$${Number(n || 0).toLocaleString()}`;
+}
+
+// Year tiles from an awardsByYear object ("Awarded in YEAR" fields): one tile
+// per year with the amount and a bar sized relative to the largest year.
+// Returns '' for fewer than two years (the amount/years rows already say it).
+function awardTilesHtml(awards, size = 'sm') {
+    const years = Object.keys(awards || {}).sort();
+    if (years.length < 2) return '';
+    const max = Math.max(...years.map(y => awards[y]));
+    const label = size === 'lg' ? 'text-sm font-medium text-gray-600' : 'text-xs text-gray-600';
+    const amount = size === 'lg' ? 'text-sm' : 'text-xs';
+    const tiles = years.map(y => `
+        <div class="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-center" title="Awarded in ${y}: ${money(awards[y])}">
+            <div class="text-[11px] font-medium text-gray-500 leading-tight">${y}</div>
+            <div class="${amount} font-semibold leading-tight mt-0.5" style="color: #183642;">${money(awards[y])}</div>
+            <div class="h-1 mt-1.5 rounded-full bg-gray-100 overflow-hidden" aria-hidden="true">
+                <div class="h-1 rounded-full" style="width: ${Math.max(6, Math.round(awards[y] / max * 100))}%; background: #2dc8d2;"></div>
+            </div>
+        </div>`).join('');
+    return `
+        <div class="my-2">
+            <div class="${label} mb-1.5">Awarded by year</div>
+            <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5">${tiles}</div>
+        </div>`;
+}
+
+// Add computed fields used by the filters, markers and popups:
+//   isCurrent      - true when the grantee has a current grant (Airtable "Current")
+//   focusAreaList  - normalized focus areas for filtering/display
+function prepareGrantees(grantees) {
+    const hasCurrentField = grantees.some(g =>
+        'isCurrent' in g || (g.grants || []).some(gr => 'isCurrent' in gr)
+    );
+    usingCurrentFallback = !hasCurrentField;
+    if (usingCurrentFallback) {
+        console.warn('grantees.json has no "isCurrent" values (sync.php not reading the Airtable ' +
+            '"Current" field). Falling back to status === "active".');
+    }
+
+    grantees.forEach(grantee => {
+        if (grantee.grants) {
+            grantee.grants.forEach(grant => {
+                grant.isCurrent = hasCurrentField ? isTruthyFlag(grant.isCurrent) : grant.status === 'active';
+                grant.focusAreaList = parseFocusAreas(grant.focusAreas || grant.focusArea);
+            });
+        }
+
+        if (hasCurrentField) {
+            grantee.isCurrent = isTruthyFlag(grantee.isCurrent) ||
+                (grantee.grants || []).some(gr => gr.isCurrent);
+        } else {
+            grantee.isCurrent = grantee.status === 'active';
+        }
+
+        grantee.focusAreaList = parseFocusAreas(grantee.focusAreas || grantee.focusArea);
+    });
+    return grantees;
+}
 
 // Initialize the application
 async function init() {
     try {
-        // Load grantee data (cache-bust to ensure fresh data after sync)
-        const cacheBust = new Date().getTime();
-        const response = await fetch(`data/grantees.json?v=${cacheBust}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
+        // Load grantee data (cache-busted; see loadGranteeData)
+        const data = await loadGranteeData();
 
         if (!data.grantees || !Array.isArray(data.grantees)) {
             throw new Error('Invalid data format: grantees array not found');
         }
 
-        allGrantees = data.grantees;
+        allGrantees = prepareGrantees(data.grantees);
         filteredGrantees = [...allGrantees];
 
         // Initialize map
@@ -193,19 +315,14 @@ function populateCountyFilter() {
     });
 }
 
-// Populate focus area filter dropdown
+// Populate focus area filter dropdown with the fixed Airtable options
 function populateFocusAreaFilter() {
-    const focusAreas = new Set();
-    allGrantees.forEach(grantee => {
-        if (grantee.focusArea) {
-            focusAreas.add(grantee.focusArea);
-        }
-    });
-
     const focusFilter = document.getElementById('focus-filter');
-    const sortedAreas = Array.from(focusAreas).sort();
 
-    sortedAreas.forEach(area => {
+    const extras = new Set();
+    allGrantees.forEach(g => g.focusAreaList.forEach(a => { if (!FOCUS_AREAS.includes(a)) extras.add(a); }));
+
+    [...FOCUS_AREAS, ...Array.from(extras).sort()].forEach(area => {
         const option = document.createElement('option');
         option.value = area;
         option.textContent = area;
@@ -229,10 +346,9 @@ function createCustomIcon(grantee) {
         initials = grantee.name.slice(0, 2).toUpperCase();
     }
 
-    // Add "NEW" badge for new organizations
-    const newBadge = grantee.isNewOrg ? '<span class="new-org-badge">NEW</span>' : '';
-    const newClass = grantee.isNewOrg ? ' new-org' : '';
-    const iconHtml = `<div class="custom-marker${newClass}">${initials}${newBadge}</div>`;
+    // Orange marker for grantees with a current grant (Airtable "Current" field)
+    const currentClass = grantee.isCurrent ? ' current-grant' : '';
+    const iconHtml = `<div class="custom-marker${currentClass}">${initials}</div>`;
 
     return L.divIcon({
         html: iconHtml,
@@ -244,9 +360,9 @@ function createCustomIcon(grantee) {
 
 // Create tooltip content
 function createTooltipContent(grantee) {
-    const newBadge = grantee.isNewOrg ? '<span class="tooltip-new-badge">New grantee!</span>' : '';
+    const currentBadge = grantee.isCurrent ? '<span class="tooltip-new-badge">Current grant</span>' : '';
     return `
-        <div class="tooltip-title">${grantee.name}${newBadge}</div>
+        <div class="tooltip-title">${grantee.name}${currentBadge}</div>
         <div class="tooltip-info">${grantee.county}</div>
         <div class="tooltip-info">$${grantee.amount.toLocaleString()}</div>
     `;
@@ -317,7 +433,7 @@ function updateGranteeCounter() {
 // Update statistics
 function updateStats() {
     const totalGrantees = filteredGrantees.length;
-    const activeProjects = filteredGrantees.filter(g => g.status === 'active').length;
+    const activeProjects = filteredGrantees.filter(g => g.isCurrent).length;
 
     // Check if we're showing all data (no filters applied)
     const isShowingAll = filteredGrantees.length === allGrantees.length;
@@ -346,8 +462,8 @@ function applyFilters() {
     filteredGrantees = allGrantees.filter(grantee => {
         if (yearFilter !== 'all' && !grantee.years.includes(yearFilter)) return false;
         if (countyFilter !== 'all' && grantee.county !== countyFilter) return false;
-        if (focusFilter !== 'all' && grantee.focusArea !== focusFilter) return false;
-        if (statusFilter !== 'all' && grantee.status !== statusFilter) return false;
+        if (focusFilter !== 'all' && !grantee.focusAreaList.includes(focusFilter)) return false;
+        if (statusFilter === 'current' && !grantee.isCurrent) return false;
         return true;
     });
 
@@ -449,10 +565,10 @@ function goHome() {
 function openModal(grantee) {
     const yearsText = grantee.years.join(', ');
 
-    // Set modal title with optional "New grantee" badge
+    // Set modal title with optional "Current grant" badge
     const modalTitle = document.getElementById('modal-title');
-    if (grantee.isNewOrg) {
-        modalTitle.innerHTML = `${grantee.name} <span class="modal-new-badge">New grantee</span>`;
+    if (grantee.isCurrent) {
+        modalTitle.innerHTML = `${grantee.name} <span class="modal-new-badge">Current grant</span>`;
     } else {
         modalTitle.textContent = grantee.name;
     }
@@ -482,27 +598,29 @@ function openModal(grantee) {
         // Add details for each individual grant
         detailsHtml += '<div class="text-sm font-semibold text-gray-700 mb-2">Grant details:</div>';
         grantee.grants.forEach((grant, index) => {
-            const statusClass = grant.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
-            const statusText = grant.status.charAt(0).toUpperCase() + grant.status.slice(1);
+            const statusClass = grant.isCurrent ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800';
+            const statusText = grant.isCurrent ? 'Current' : 'Completed';
 
-            // Show project name if available
-            const projectTitle = grant.projectName ? grant.projectName : `Grant #${index + 1}`;
+            // Title each grant with its Airtable "Project Name"; number it only if missing
+            const projectName = String(grant.projectName || grant.project || '').trim();
+            const projectTitle = projectName || `Grant #${index + 1}`;
 
             detailsHtml += `
                 <div class="mb-4 p-3 bg-gray-50 rounded-lg">
                     <div class="font-medium text-gray-800 mb-2">${projectTitle}</div>
-                    <div class="text-xs text-gray-700 mb-2">${grant.description}</div>
+                    ${grant.description ? `<div class="text-xs text-gray-700 mb-2">${grant.description}</div>` : ''}
                     <div class="flex items-center justify-between text-xs mb-1">
                         <span class="text-gray-600">Amount:</span>
                         <span class="font-semibold" style="color: #2dc8d2;">$${grant.amount.toLocaleString()}</span>
                     </div>
+                    ${awardTilesHtml(grant.awardsByYear) || `
                     <div class="flex items-center justify-between text-xs mb-1">
                         <span class="text-gray-600">Years:</span>
                         <span class="font-semibold text-gray-800">${grant.years.join(', ')}</span>
-                    </div>
+                    </div>`}
                     <div class="flex items-center justify-between text-xs mb-1">
                         <span class="text-gray-600">Focus:</span>
-                        <span class="text-gray-700">${grant.focusArea}</span>
+                        <span class="text-gray-700">${grant.focusAreaList.join(', ')}</span>
                     </div>
                     <div class="flex items-center justify-between text-xs">
                         <span class="text-gray-600">Status:</span>
@@ -515,24 +633,33 @@ function openModal(grantee) {
         document.getElementById('modal-details').innerHTML = detailsHtml;
     } else {
         // Single grant - original format
-        const statusClass = grantee.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
-        const statusText = grantee.status.charAt(0).toUpperCase() + grantee.status.slice(1);
+        const statusClass = grantee.isCurrent ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800';
+        const statusText = grantee.isCurrent ? 'Current' : 'Completed';
 
-        document.getElementById('modal-description').textContent = grantee.description;
+        document.getElementById('modal-description').textContent = grantee.description || '';
 
         const detailsHtml = `
+            ${grantee.projectName ? `
+            <div class="flex items-center justify-between gap-4 py-2 border-b border-gray-200">
+                <span class="text-sm font-medium text-gray-600">Project:</span>
+                <span class="text-sm font-semibold text-gray-800 text-right">${grantee.projectName}</span>
+            </div>
+            ` : ''}
             <div class="flex items-center justify-between py-2 border-b border-gray-200">
                 <span class="text-sm font-medium text-gray-600">Funding:</span>
                 <span class="text-sm font-semibold" style="color: #2dc8d2;">$${grantee.amount.toLocaleString()}</span>
             </div>
+            ${awardTilesHtml(grantee.awardsByYear, 'lg')
+                ? `<div class="py-1 border-b border-gray-200">${awardTilesHtml(grantee.awardsByYear, 'lg')}</div>`
+                : `
             <div class="flex items-center justify-between py-2 border-b border-gray-200">
                 <span class="text-sm font-medium text-gray-600">Years:</span>
                 <span class="text-sm font-semibold text-gray-800">${yearsText}</span>
-            </div>
-            ${grantee.focusArea ? `
+            </div>`}
+            ${grantee.focusAreaList.length ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-200">
                 <span class="text-sm font-medium text-gray-600">Focus area:</span>
-                <span class="text-sm text-gray-800">${grantee.focusArea}</span>
+                <span class="text-sm text-gray-800">${grantee.focusAreaList.join(', ')}</span>
             </div>
             ` : ''}
             <div class="flex items-center justify-between py-2">
@@ -825,4 +952,3 @@ if ('serviceWorker' in navigator) {
             });
     });
 }
-

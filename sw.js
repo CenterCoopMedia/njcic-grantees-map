@@ -1,7 +1,7 @@
 // Service Worker for NJCIC Grantees Map
 // Provides offline support and caching
 
-const CACHE_NAME = 'njcic-map-v2';
+const CACHE_NAME = 'njcic-map-v3';
 const OFFLINE_URL = '404.html';
 
 // Assets to cache on install
@@ -75,6 +75,29 @@ self.addEventListener('fetch', event => {
         return;
     }
 
+    // Pages and data: network first so a new release or sync shows up right
+    // away; the cached copy is only an offline fallback. Data URLs carry a
+    // cache-busting ?v= and are not stored.
+    const url = new URL(event.request.url);
+    if (event.request.mode === 'navigate' || url.pathname.endsWith('.json')) {
+        event.respondWith(
+            fetch(event.request)
+                .then(response => {
+                    if (event.request.mode === 'navigate' && response && response.ok && response.type === 'basic') {
+                        const copy = response.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+                    }
+                    return response;
+                })
+                .catch(() => caches.match(event.request)
+                    .then(cached => cached || (event.request.mode === 'navigate'
+                        ? caches.match(OFFLINE_URL)
+                        : new Response('Offline', { status: 503, statusText: 'Service Unavailable' }))))
+        );
+        return;
+    }
+
+    // Everything else (versioned JS, CDN assets): cache first
     event.respondWith(
         caches.match(event.request)
             .then(cachedResponse => {

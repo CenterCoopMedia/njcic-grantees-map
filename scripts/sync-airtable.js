@@ -49,6 +49,7 @@ const FIELDS = {
     CANCELLED: 'Returned/Cancelled grant?',
     CANCEL_REASON: 'Reason cancelled/returned:',
     CURRENT: 'Current',
+    PROJECT: 'Project',
     NEW_ORG: 'New org?',
     LAT: 'Lat',
     LNG: 'Long',
@@ -295,7 +296,8 @@ function transformRecords(records, lookup) {
         const fields = record.fields;
         const fullName = (fields[FIELDS.GRANTEE] || '').trim();  // Trim whitespace
         const baseName = extractBaseGranteeName(fullName);
-        const projectName = extractProjectName(fullName);
+        // Prefer the Airtable "Project" field; fall back to "Org: Project" naming
+        const projectName = (fields[FIELDS.PROJECT] || '').trim() || extractProjectName(fullName);
         const years = fields[FIELDS.YEARS] || [];
         // Round to cents at the source so every downstream serialization
         // (per-grant amount, per-grantee total, metadata totalFunding) is
@@ -407,6 +409,7 @@ function transformRecords(records, lookup) {
             result.description = `This organization received ${grantee.grants.length} grants totaling $${totalAmount.toLocaleString()}.`;
             result.grants = grantee.grants.map((g, i) => ({
                 id: i + 1,
+                projectName: g.projectName,
                 years: g.years,
                 amount: g.amount,
                 description: g.description,

@@ -18,11 +18,15 @@ marked `noindex` and doesn't register the service worker.
   - Journalism pipeline → Journalism Pipeline
   - Blue Engine Tech & Sustainability Accelerator Grant → Capacity Building
 - Status filter: **All** / **Current** only, based on the Current field.
+- Grantee popups: for organizations with several grants, each grant is titled with its
+  Airtable **Project** name (e.g. "Statewide Paid Internship Program") instead of "Grant #1",
+  "Grant #2". "Grant #N" is shown only when a record's Project field is empty.
 
 ## Required sync change (sync.php on the server)
 
-`grantees.json` doesn't carry the Current field yet. Until it does, staging falls back to
-the old year-based "active" status (a warning shows in the browser console). To use the real field,
+`grantees.json` doesn't carry the Current or Project fields yet. Until they're synced,
+staging falls back to the old year-based "active" status (a warning shows in the browser
+console) and popups keep showing "Grant #1", "Grant #2". To use the real fields,
 add this to `sync.php`. It mirrors the change already made in `scripts/sync-airtable.js`:
 
 ```php
@@ -37,12 +41,13 @@ function is_truthy_flag($v) {
 
 // per record
 $isCurrent = is_truthy_flag($fields['Current'] ?? null);
+$projectName = trim($fields['Project'] ?? '');
 
-// on each grant entry:    'isCurrent' => $isCurrent
+// on each grant entry:    'isCurrent' => $isCurrent, 'projectName' => $projectName
 // on the grantee entry:   'isCurrent' => true if ANY of its grants is current
 ```
 
-The live map ignores the new `isCurrent` field, so this change is safe for production.
+The live map ignores the new `isCurrent` field and already shows `projectName` when present, so this change is safe for production.
 
 ## Promoting to production
 

@@ -567,7 +567,9 @@ function openModal(grantee) {
             const statusText = grant.isCurrent ? 'Current' : 'Completed';
 
             // Show project name if available
-            const projectTitle = grant.projectName ? grant.projectName : `Grant #${index + 1}`;
+            // Title each grant with its Airtable "Project" name; number it only if missing
+            const projectName = String(grant.projectName || grant.project || '').trim();
+            const projectTitle = projectName || `Grant #${index + 1}`;
 
             detailsHtml += `
                 <div class="mb-4 p-3 bg-gray-50 rounded-lg">

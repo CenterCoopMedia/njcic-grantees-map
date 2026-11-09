@@ -334,11 +334,32 @@ function fetch_all_records() {
 function write_json_atomically($path, array $data) {
     $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
     if ($json === false) throw new RuntimeException('JSON encode failed: ' . json_last_error_msg());
-    if (!is_dir(dirname($path))) mkdir(dirname($path), 0755, true);
-    if (is_file($path)) @copy($path, $path . '.bak');          // keep the previous version
-    $tmp = $path . '.tmp';
-    if (file_put_contents($tmp, $json, LOCK_EX) === false) throw new RuntimeException("Cannot write $tmp");
-    if (!rename($tmp, $path)) throw new RuntimeException("Cannot replace $path");
+    $dir = dirname($path);
+    if (!is_dir($dir)) @mkdir($dir, 0755, true);
+
+    // Preferred: write a temp file in the same folder, then swap it in, so the
+    // map never reads a half-written file. Needs write permission on the folder.
+    if (is_writable($dir)) {
+        if (is_file($path)) @copy($path, $path . '.bak');      // keep the previous version
+        $tmp = $path . '.tmp';
+        if (@file_put_contents($tmp, $json, LOCK_EX) !== false && @rename($tmp, $path)) return 'replaced';
+        @unlink($tmp);
+    }
+
+    // Fallback: overwrite the existing file in place. Needs write permission
+    // on grantees.json only (not on the folder).
+    if (is_file($path) && is_writable($path) && @file_put_contents($path, $json, LOCK_EX) !== false) {
+        return 'overwritten in place';
+    }
+
+    $who = function_exists('posix_geteuid') && function_exists('posix_getpwuid')
+        ? (posix_getpwuid(posix_geteuid())['name'] ?? posix_geteuid()) : get_current_user();
+    throw new RuntimeException(
+        "Cannot write $path. The web server (running as \"$who\") needs write permission on the " .
+        "data folder (" . (is_writable($dir) ? 'writable' : 'NOT writable') . ") or on grantees.json (" .
+        (is_file($path) ? (is_writable($path) ? 'writable' : 'NOT writable') : 'missing') . "). " .
+        "In FileZilla: right-click the data folder > File permissions > 775 (or 777), and grantees.json > 664 (or 666)."
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -372,7 +393,7 @@ try {
     if (!$grantees) throw new RuntimeException('No grantees produced; keeping the existing grantees.json');
 
     $output = build_output($grantees, 'Airtable - Grants to date: NJ Civic Info Consortium');
-    write_json_atomically(OUTPUT_FILE, $output);
+    $how = write_json_atomically(OUTPUT_FILE, $output);
 
     $m = $output['metadata'];
     echo "Sync complete\n";
@@ -380,6 +401,7 @@ try {
     echo "Grantees: {$m['totalGrantees']} | Grants: {$m['totalGrants']} | Current: {$m['currentGrantees']}\n";
     echo "Funding: $" . number_format($m['totalFunding'], 2) . "\n";
     echo "Updated: {$m['lastUpdated']}\n";
+    echo "File: data/grantees.json ($how)\n";
 
     if (!empty($_GET['debug'])) {
         $names = [];

@@ -69,6 +69,50 @@ function isTruthyFlag(value) {
 
 let usingCurrentFallback = false;
 
+// STAGING stopgap: project names built from the Airtable export
+// (scripts/build-staging-project-names.js). Used only for grants whose
+// grantees.json entry has no projectName yet; once sync.php writes the
+// Airtable "Project" field, the synced value wins.
+const PROJECT_NAMES_URL = 'data/project-names.json';
+
+async function loadProjectNameLookup() {
+    try {
+        const response = await fetch(`${PROJECT_NAMES_URL}?v=${Date.now()}`);
+        if (!response.ok) return {};
+        const data = await response.json();
+        return data.grantees || {};
+    } catch (e) {
+        console.warn('STAGING: could not load project-names.json', e);
+        return {};
+    }
+}
+
+function sameYears(a, b) {
+    const x = [...(a || [])].map(String).sort();
+    const y = [...(b || [])].map(String).sort();
+    return x.length === y.length && x.every((v, i) => v === y[i]);
+}
+
+// Fill in missing grant.projectName values from the lookup, matching on
+// grantee name + amount, and on years when more than one grant matches.
+function applyProjectNames(grantees, lookup) {
+    grantees.forEach(grantee => {
+        const candidates = lookup[grantee.name.trim().toLowerCase()];
+        if (!candidates || !grantee.grants) return;
+        const used = new Set();
+        grantee.grants.forEach(grant => {
+            if (grant.projectName) return;
+            const amount = Math.round((grant.amount || 0) * 100) / 100;
+            const available = candidates.filter((c, i) => !used.has(i) && c.amount === amount);
+            const match = available.find(c => sameYears(c.years, grant.years)) || available[0];
+            if (match) {
+                used.add(candidates.indexOf(match));
+                grant.projectName = match.projectName;
+            }
+        });
+    });
+}
+
 // Add computed fields used by the filters, markers and popups:
 //   isCurrent      - true when the grantee has a current grant (Airtable "Current")
 //   focusAreaList  - normalized focus areas for filtering/display
@@ -120,6 +164,7 @@ async function init() {
         }
 
         allGrantees = prepareGrantees(data.grantees);
+        applyProjectNames(allGrantees, await loadProjectNameLookup());
         filteredGrantees = [...allGrantees];
 
         // Initialize map

@@ -21,12 +21,15 @@ marked `noindex` and doesn't register the service worker.
 - Grantee popups: for organizations with several grants, each grant is titled with its
   Airtable **Project** name (e.g. "Statewide Paid Internship Program") instead of "Grant #1",
   "Grant #2". "Grant #N" is shown only when a record's Project field is empty.
+  Until sync.php writes the Project field, staging reads names from
+  `staging/data/project-names.json`, built from the Airtable CSV export with
+  `node scripts/build-staging-project-names.js` (re-run after exporting a fresh CSV).
 
 ## Required sync change (sync.php on the server)
 
 `grantees.json` doesn't carry the Current or Project fields yet. Until they're synced,
 staging falls back to the old year-based "active" status (a warning shows in the browser
-console) and popups keep showing "Grant #1", "Grant #2". To use the real fields,
+console) and takes project names from `data/project-names.json`. To use the real fields,
 add this to `sync.php`. It mirrors the change already made in `scripts/sync-airtable.js`:
 
 ```php
@@ -56,3 +59,4 @@ Copy `staging/index.html` → `index.html` and `staging/js/app.js` → `js/app.j
 - change `DATA_URL` in `app.js` back to `'data/grantees.json'`
 - restore the service worker registration block at the bottom of `app.js`
 - bump the `app.js?v=` query string
+- once sync.php writes `projectName`, the project-names.json lookup can be removed

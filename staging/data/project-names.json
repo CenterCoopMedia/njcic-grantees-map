@@ -1,0 +1,971 @@
+{
+  "source": "Grants-Grid view.csv",
+  "generated": "2026-11-09",
+  "grantees": {
+    "dovernow magazine": [
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      }
+    ],
+    "hammonton gazette": [
+      {
+        "amount": 100000,
+        "years": [
+          "2024",
+          "2025"
+        ],
+        "projectName": "South-central NJ coverage expansion"
+      },
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      },
+      {
+        "amount": 204043,
+        "years": [
+          "2021",
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Noticias Spanish publication"
+      }
+    ],
+    "trenton journal": [
+      {
+        "amount": 410000,
+        "years": [
+          "2021",
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Local contributor training"
+      },
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "70and73.com": [
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "garden state initiative": [
+      {
+        "amount": 100000,
+        "years": [
+          "2025"
+        ],
+        "projectName": "State budget data warehouse"
+      }
+    ],
+    "the daily targum (targum publishing co.)": [
+      {
+        "amount": 60000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Daily Targum digital expansion"
+      },
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "new jersey urban news": [
+      {
+        "amount": 220000,
+        "years": [
+          "2024",
+          "2025"
+        ],
+        "projectName": "Editor and reporter hiring"
+      },
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      },
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "newark water coalition": [
+      {
+        "amount": 134930,
+        "years": [
+          "2021",
+          "2022",
+          "2023"
+        ],
+        "projectName": "Newark Community Voices"
+      }
+    ],
+    "the jersey vindicator": [
+      {
+        "amount": 395000,
+        "years": [
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Investigative journalism launch"
+      },
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      },
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      }
+    ],
+    "beyond expectations": [
+      {
+        "amount": 93876,
+        "years": [
+          "2021",
+          "2022"
+        ],
+        "projectName": "be.tv eStudios"
+      }
+    ],
+    "atlantic city focus": [
+      {
+        "amount": 300000,
+        "years": [
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Civic Engagement Guide"
+      },
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "unidad latina en acción nj": [
+      {
+        "amount": 370000,
+        "years": [
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Radio Jornalera NJ Communication Project"
+      }
+    ],
+    "the jersey bee": [
+      {
+        "amount": 420000,
+        "years": [
+          "2021",
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Community reporter corps pilot"
+      },
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      }
+    ],
+    "mental health association of new jersey": [
+      {
+        "amount": 75000,
+        "years": [
+          "2022"
+        ],
+        "projectName": "Community college mental health research"
+      }
+    ],
+    "old bridge nj resident": [
+      {
+        "amount": 35000,
+        "years": [
+          "2021"
+        ],
+        "projectName": "Local government archive"
+      }
+    ],
+    "camden parent & student union": [
+      {
+        "amount": 280000,
+        "years": [
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Camden student reporter training"
+      }
+    ],
+    "radio rouj & ble": [
+      {
+        "amount": 40000,
+        "years": [
+          "2022"
+        ],
+        "projectName": "Haitian community radio platform"
+      }
+    ],
+    "two river times": [
+      {
+        "amount": 31879,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Nonprofit conversion support"
+      }
+    ],
+    "nj coalition to end homelessness": [
+      {
+        "amount": 99200,
+        "years": [
+          "2023"
+        ],
+        "projectName": "Garden State Leaders"
+      }
+    ],
+    "clinton hill community action": [
+      {
+        "amount": 300000,
+        "years": [
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Citizen Journalism Program"
+      }
+    ],
+    "mercerme": [
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      },
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      },
+      {
+        "amount": 75000,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Organizational sustainability support"
+      }
+    ],
+    "center for cooperative media": [
+      {
+        "amount": 130000,
+        "years": [
+          "2023",
+          "2024"
+        ],
+        "projectName": "South Jersey Information Equity Project"
+      },
+      {
+        "amount": 99070,
+        "years": [
+          "2023"
+        ],
+        "projectName": "Statewide Voting Guide"
+      },
+      {
+        "amount": 366038.88,
+        "years": [
+          "2022",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Research and Development"
+      },
+      {
+        "amount": 225000,
+        "years": [
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "NJ News Commons Spanish Translation Service"
+      }
+    ],
+    "global patriot newspapers online": [
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      }
+    ],
+    "front runner new jersey": [
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      },
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      },
+      {
+        "amount": 405000,
+        "years": [
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "African American and Latino community coverage"
+      }
+    ],
+    "tapinto bayonne, hamilton/robbinsville, hoboken, jersey city, paterson.": [
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      }
+    ],
+    "asbury park media collective": [
+      {
+        "amount": 112600,
+        "years": [
+          "2022",
+          "2023"
+        ],
+        "projectName": "Community reporter incubator"
+      }
+    ],
+    "paterson alliance": [
+      {
+        "amount": 33000,
+        "years": [
+          "2021"
+        ],
+        "projectName": "Paterson Information Hub"
+      }
+    ],
+    "camden fireworks": [
+      {
+        "amount": 64460,
+        "years": [
+          "2023"
+        ],
+        "projectName": "Camden environmental storytelling"
+      }
+    ],
+    "tapinto raritan bay (sayreville/south amboy) and tapinto scotch plains-fanwood": [
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      }
+    ],
+    "nj monitor": [
+      {
+        "amount": 210000,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Health care reporter"
+      }
+    ],
+    "new jersey hills media group": [
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      }
+    ],
+    "latino spirit media": [
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "datasourcenj inc.": [
+      {
+        "amount": 50000,
+        "years": [
+          "2023"
+        ],
+        "projectName": "Journalism data repository"
+      }
+    ],
+    "healthy newsworks": [
+      {
+        "amount": 70000,
+        "years": [
+          "2025",
+          "2026"
+        ],
+        "projectName": "Camden health journalism literacy"
+      }
+    ],
+    "daily targum": [
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      }
+    ],
+    "public square amplified": [
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      },
+      {
+        "amount": 390000,
+        "years": [
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Community reporter training program"
+      }
+    ],
+    "vietlead": [
+      {
+        "amount": 48000,
+        "years": [
+          "2023"
+        ],
+        "projectName": "Jersey Roots Youth Program listening sessions"
+      }
+    ],
+    "black in jersey": [
+      {
+        "amount": 320000,
+        "years": [
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Black news and information hub"
+      },
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "tapinto hasbrouk heights": [
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "nj pen": [
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      },
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "nj spotlight news": [
+      {
+        "amount": 250000,
+        "years": [
+          "2022",
+          "2023",
+          "2025"
+        ],
+        "projectName": "Report for America mental health corps member"
+      },
+      {
+        "amount": 305000,
+        "years": [
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Washington, D.C. correspondent"
+      }
+    ],
+    "new jersey ymca state alliance": [
+      {
+        "amount": 135000,
+        "years": [
+          "2022",
+          "2023"
+        ],
+        "projectName": "COVID-19 vaccination storytelling"
+      }
+    ],
+    "muslim": [
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "wayne hills high school": [
+      {
+        "amount": 35991,
+        "years": [
+          "2023",
+          "2024"
+        ],
+        "projectName": "Podcasting studio and digital journalism program"
+      }
+    ],
+    "ridge view echo": [
+      {
+        "amount": 395000,
+        "years": [
+          "2021",
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Greater Blairstown News Project"
+      },
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "vaccinatenj.com": [
+      {
+        "amount": 35000,
+        "years": [
+          "2021"
+        ],
+        "projectName": "Vaccination information website expansion"
+      }
+    ],
+    "the college of new jersey": [
+      {
+        "amount": 25950,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Student investigative reporting at TCNJ"
+      }
+    ],
+    "central desi": [
+      {
+        "amount": 301066,
+        "years": [
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "South Asian journalism fellowship"
+      }
+    ],
+    "new jersey state house news service": [
+      {
+        "amount": 220000,
+        "years": [
+          "2024",
+          "2025"
+        ],
+        "projectName": "The News Service"
+      }
+    ],
+    "hudpost": [
+      {
+        "amount": 100000,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Bilingual Hudson County coverage"
+      },
+      {
+        "amount": 3300,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Statewide Paid Internship Program"
+      }
+    ],
+    "movimiento cosecha": [
+      {
+        "amount": 185000,
+        "years": [
+          "2021",
+          "2022",
+          "2023"
+        ],
+        "projectName": "Radio Cosecha"
+      }
+    ],
+    "cranford high school": [
+      {
+        "amount": 86497.75,
+        "years": [
+          "2022",
+          "2023"
+        ],
+        "projectName": "Digital journalism program expansion"
+      }
+    ],
+    "the village green": [
+      {
+        "amount": 40000,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Student newsroom internships"
+      }
+    ],
+    "slice of culture @ saint peter's university": [
+      {
+        "amount": 380000,
+        "years": [
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Slice of Culture"
+      }
+    ],
+    "morristown green": [
+      {
+        "amount": 220000,
+        "years": [
+          "2022",
+          "2023",
+          "2025"
+        ],
+        "projectName": "Paid internship program"
+      },
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "chalkbeat newark (civic news company)": [
+      {
+        "amount": 320000,
+        "years": [
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Newark civic engagement reporting"
+      }
+    ],
+    "hopeloft": [
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "inside climate news": [
+      {
+        "amount": 62000,
+        "years": [
+          "2025"
+        ],
+        "projectName": "NJ environmental reporting collaboration"
+      }
+    ],
+    "colab arts": [
+      {
+        "amount": 140000,
+        "years": [
+          "2022",
+          "2023"
+        ],
+        "projectName": "Teatro Esperanza"
+      },
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "cair nj": [
+      {
+        "amount": 100000,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Muslim-American civic news platform"
+      }
+    ],
+    "new labor": [
+      {
+        "amount": 270000,
+        "years": [
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Community-driven Journalism Project"
+      }
+    ],
+    "the tower at princeton high school": [
+      {
+        "amount": 13700,
+        "years": [
+          "2025"
+        ],
+        "projectName": "Newsroom technology upgrades"
+      }
+    ],
+    "montclair local nonprofit news": [
+      {
+        "amount": 180000,
+        "years": [
+          "2025",
+          "2026"
+        ],
+        "projectName": "Essex County senior reporter"
+      },
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "south jersey climate news project": [
+      {
+        "amount": 115320,
+        "years": [
+          "2022",
+          "2023",
+          "2025"
+        ],
+        "projectName": "Climate reporting student internships"
+      }
+    ],
+    "new jersey council for the humanities and journalism + design": [
+      {
+        "amount": 459000,
+        "years": [
+          "2022",
+          "2024"
+        ],
+        "projectName": "Statewide community journalism training"
+      }
+    ],
+    "stories of atlantic city": [
+      {
+        "amount": 99892,
+        "years": [
+          "2021",
+          "2022",
+          "2023",
+          "2024"
+        ],
+        "projectName": "Community reporter pilot"
+      }
+    ],
+    "industry media arts": [
+      {
+        "amount": 274720,
+        "years": [
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Journalism Mentorship Program"
+      }
+    ],
+    "corporation for new jersey local media": [
+      {
+        "amount": 158315,
+        "years": [
+          "2023",
+          "2024"
+        ],
+        "projectName": "Stormwater Matters initiative"
+      }
+    ],
+    "intersystemz": [
+      {
+        "amount": 35000,
+        "years": [
+          "2022"
+        ],
+        "projectName": "Trenton community news platform"
+      }
+    ],
+    "heady nj": [
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "hopeloft, inc.": [
+      {
+        "amount": 254690,
+        "years": [
+          "2021",
+          "2022",
+          "2023",
+          "2024",
+          "2025"
+        ],
+        "projectName": "Follow South Jersey internship program"
+      }
+    ],
+    "tapinto fairlawn/glenrock": [
+      {
+        "amount": 10000,
+        "years": [
+          "2024"
+        ],
+        "projectName": "Blue Engine Technology & Sustainability Accelerator cohort"
+      }
+    ],
+    "newark news and story collaborative": [
+      {
+        "amount": 210000,
+        "years": [
+          "2021",
+          "2022",
+          "2023"
+        ],
+        "projectName": "Newark news lab"
+      }
+    ],
+    "lens 15 media": [
+      {
+        "amount": 50000,
+        "years": [
+          "2022"
+        ],
+        "projectName": "Disability news agency"
+      }
+    ],
+    "the conservatory of music and performing arts society": [
+      {
+        "amount": 35000,
+        "years": [
+          "2021"
+        ],
+        "projectName": "Let My People Learn-HistorVic Education"
+      }
+    ],
+    "central new jersey network": [
+      {
+        "amount": 145000,
+        "years": [
+          "2024",
+          "2025"
+        ],
+        "projectName": "Community TV programming and internships"
+      }
+    ],
+    "south jersey emerging journalists project": [
+      {
+        "amount": 50000,
+        "years": [
+          "2025"
+        ],
+        "projectName": "South Jersey Emerging Journalists Project"
+      }
+    ]
+  }
+}

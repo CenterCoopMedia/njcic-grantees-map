@@ -48,6 +48,8 @@ const FIELDS = {
     WEBSITE: 'Grantee website',
     CANCELLED: 'Returned/Cancelled grant?',
     CANCEL_REASON: 'Reason cancelled/returned:',
+    CURRENT: 'Current',
+    NEW_ORG: 'New org?',
     LAT: 'Lat',
     LNG: 'Long',
     CITY: 'City'
@@ -199,6 +201,29 @@ function createLookupMap(existingGrantees) {
 }
 
 /**
+ * Interpret the Airtable "Current" field (checkbox, or a text/select/formula
+ * value such as "Yes" or "Current").
+ */
+function isTruthyFlag(value) {
+    if (Array.isArray(value)) return value.some(isTruthyFlag);
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value > 0;
+    if (typeof value === 'string') {
+        return ['yes', 'y', 'true', '1', 'current', 'checked', 'x'].includes(value.trim().toLowerCase());
+    }
+    return false;
+}
+
+/**
+ * Normalize the Focus area field, which may be a single value or a
+ * multiple-select array, into an array of labels.
+ */
+function toFocusAreaList(value) {
+    const parts = Array.isArray(value) ? value : String(value || '').split(';');
+    return parts.map(p => String(p).trim()).filter(Boolean);
+}
+
+/**
  * Determine grant status based on years
  */
 function determineStatus(years) {
@@ -277,7 +302,10 @@ function transformRecords(records, lookup) {
         // consistent even if Airtable ever emits a fractional-cent value.
         const amount = Math.round((fields[FIELDS.AMOUNT] || 0) * 100) / 100;
         const description = fields[FIELDS.GRANT_PURPOSE] || '';
-        const focusArea = fields[FIELDS.FOCUS_AREA] || '';
+        const focusAreaList = toFocusAreaList(fields[FIELDS.FOCUS_AREA]);
+        const focusArea = focusAreaList.join('; ');
+        const isCurrent = isTruthyFlag(fields[FIELDS.CURRENT]);
+        const isNewOrg = isTruthyFlag(fields[FIELDS.NEW_ORG]);
         const county = fields[FIELDS.SERVICE_AREA] || 'Statewide';
         const website = fields[FIELDS.WEBSITE] || '';
         const lat = fields[FIELDS.LAT];
@@ -292,6 +320,8 @@ function transformRecords(records, lookup) {
                 years: new Set(),
                 website,
                 focusAreas: new Set(),
+                isCurrent: false,
+                isNewOrg: false,
                 // Store coordinates from the first record we see
                 lat: lat,
                 lng: lng,
@@ -306,6 +336,10 @@ function transformRecords(records, lookup) {
         if (!grantee.lng && lng) grantee.lng = lng;
         if (!grantee.city && city) grantee.city = city;
 
+        // A grantee is current if any of its grants is current
+        if (isCurrent) grantee.isCurrent = true;
+        if (isNewOrg) grantee.isNewOrg = true;
+
         // Add grant details
         grantee.grants.push({
             projectName: projectName,  // Will be null if no project name
@@ -313,16 +347,15 @@ function transformRecords(records, lookup) {
             amount: amount,
             description: `Received funding ${description}`,
             focusArea: focusArea,
-            status: determineStatus(years)
+            status: determineStatus(years),
+            isCurrent: isCurrent
         });
 
         // Merge years
         years.forEach(y => grantee.years.add(y));
 
         // Merge focus areas
-        if (focusArea) {
-            grantee.focusAreas.add(focusArea);
-        }
+        focusAreaList.forEach(a => grantee.focusAreas.add(a));
 
         // Update website if not set
         if (!grantee.website && website) {
@@ -364,7 +397,9 @@ function transformRecords(records, lookup) {
             lng: lng,
             status: determineStatus(yearsArray),
             website: grantee.website,
-            focusArea: focusAreasArray.join('; ')
+            focusArea: focusAreasArray.join('; '),
+            isCurrent: grantee.isCurrent,
+            isNewOrg: grantee.isNewOrg
         };
 
         // Handle multiple grants
@@ -376,7 +411,8 @@ function transformRecords(records, lookup) {
                 amount: g.amount,
                 description: g.description,
                 focusArea: g.focusArea,
-                status: g.status
+                status: g.status,
+                isCurrent: g.isCurrent
             }));
             result.totalAmount = totalAmount;
             result.focusAreas = focusAreasArray;

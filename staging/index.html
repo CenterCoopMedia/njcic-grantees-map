@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive map of New Jersey Civic Information Consortium grantees - journalism and civic engagement projects across NJ">
+    <title>[STAGING] NJ Civic Information Consortium Grantees Map</title>
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://njcivicinfo.org/map/">
+    <meta property="og:title" content="NJ Civic Information Consortium Grantees Map">
+    <meta property="og:description" content="Explore 76+ journalism and civic engagement projects funded by NJCIC across New Jersey. More than $12 million invested in local news.">
+    <meta property="og:image" content="https://njcivicinfo.org/wp-content/uploads/2024/09/NJCIC-Full-Text-Logo-300x150.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://njcivicinfo.org/map/">
+    <meta property="twitter:title" content="NJ Civic Information Consortium Grantees Map">
+    <meta property="twitter:description" content="Explore 76+ journalism and civic engagement projects funded by NJCIC across New Jersey. More than $12 million invested in local news.">
+    <meta property="twitter:image" content="https://njcivicinfo.org/wp-content/uploads/2024/09/NJCIC-Full-Text-Logo-300x150.png">
+
+    <!-- Additional SEO -->
+    <meta name="keywords" content="NJCIC, New Jersey, journalism, local news, civic engagement, grants, nonprofit, news desert">
+    <meta name="author" content="Center for Cooperative Media">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="canonical" href="https://njcivicinfo.org/map/">
+
+    <!-- Favicon using NJCIC colors -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%232dc8d2'/><text x='50' y='65' font-size='40' font-weight='bold' fill='white' text-anchor='middle' font-family='Arial'>NJ</text></svg>">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Special+Elite&family=Archivo:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+
+    <!-- Leaflet MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7fafc;
+            color: #2d3748;
+        }
+
+        #map {
+            width: 100%;
+            height: 85vh;
+            z-index: 10;
+        }
+
+        .full-width-breakout {
+            width: 100vw;
+            position: relative;
+            left: 50%;
+            margin-left: -50vw;
+        }
+
+        /* Hide default Leaflet zoom control */
+        .leaflet-control-zoom {
+            display: none !important;
+        }
+
+        /* Map legend styling */
+        .map-legend {
+            background: white;
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 200px;
+            font-size: 0.875rem;
+        }
+
+        /* Mobile legend adjustments */
+        @media (max-width: 640px) {
+            .map-legend {
+                padding: 0.5rem;
+                max-width: 160px;
+                font-size: 0.75rem;
+                top: 0.5rem;
+                right: 0.5rem;
+            }
+            .map-legend h3 {
+                font-size: 0.75rem;
+                margin-bottom: 0.5rem;
+            }
+            .legend-item {
+                margin-bottom: 0.35rem;
+                font-size: 0.75rem;
+            }
+            .legend-marker,
+            .legend-cluster {
+                width: 24px;
+                height: 24px;
+                font-size: 0.65rem;
+                margin-right: 0.35rem;
+            }
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .legend-marker {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .legend-cluster {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        /* Custom tooltip styling */
+        .custom-leaflet-tooltip {
+            font-family: 'Special Elite', cursive;
+            background-color: #f5e8c8 !important;
+            border: 1px solid #d3c4a8 !important;
+            border-left: 6px solid #2dc8d2 !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+            min-width: 250px;
+            max-width: 300px;
+            white-space: normal;
+            word-wrap: break-word;
+            padding: 0.75rem !important;
+        }
+
+        .tooltip-title {
+            font-weight: bold;
+            font-size: 1.05rem;
+            color: #333;
+            margin-bottom: 0.35rem;
+            overflow-wrap: break-word;
+        }
+
+        .tooltip-info {
+            font-size: 0.9rem;
+            color: #555;
+            line-height: 1.3;
+        }
+
+        /* Marker cluster colors with pulse animation */
+        .marker-cluster-small {
+            background-color: rgba(45, 200, 210, 0.6);
+        }
+        .marker-cluster-small div {
+            background-color: rgba(45, 200, 210, 0.8);
+            animation: pulse-cluster-inner 2s ease-in-out infinite;
+        }
+        .marker-cluster-medium {
+            background-color: rgba(243, 66, 19, 0.6);
+        }
+        .marker-cluster-medium div {
+            background-color: rgba(243, 66, 19, 0.8);
+            animation: pulse-cluster-inner 2s ease-in-out infinite;
+        }
+        .marker-cluster-large {
+            background-color: rgba(24, 54, 66, 0.6);
+        }
+        .marker-cluster-large div {
+            background-color: rgba(24, 54, 66, 0.8);
+            animation: pulse-cluster-inner 2s ease-in-out infinite;
+        }
+
+        /* Pulse animation for cluster inner elements */
+        @keyframes pulse-cluster-inner {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+            }
+            50% {
+                transform: scale(1.1);
+                box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.6);
+            }
+        }
+
+        /* Custom marker icon */
+        .custom-marker {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2dc8d2 0%, #183642 100%);
+            border: 3px solid white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: transform 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .custom-marker:hover {
+            transform: scale(1.15);
+        }
+
+        /* Current grant marker styling */
+        .custom-marker.current-grant {
+            background: linear-gradient(135deg, #f34213 0%, #183642 100%);
+            box-shadow: 0 4px 12px rgba(243, 66, 19, 0.4);
+            animation: pulse-new 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-new {
+            0%, 100% {
+                box-shadow: 0 4px 12px rgba(243, 66, 19, 0.4);
+            }
+            50% {
+                box-shadow: 0 4px 20px rgba(243, 66, 19, 0.7);
+            }
+        }
+
+        .new-org-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #f34213;
+            color: white;
+            font-size: 0.5rem;
+            font-weight: bold;
+            padding: 2px 4px;
+            border-radius: 4px;
+            line-height: 1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .tooltip-new-badge {
+            display: block;
+            background: #f34213;
+            color: white;
+            font-size: 0.7rem;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 4px;
+            width: fit-content;
+        }
+
+        .modal-new-badge {
+            display: inline-block;
+            background: #f34213;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: bold;
+            padding: 3px 8px;
+            border-radius: 6px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        /* Modal styling */
+        #modal-overlay {
+            transition: opacity 0.3s ease-in-out;
+        }
+        #modal-content {
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 640px) {
+            #map {
+                height: 60vh;
+            }
+            .custom-leaflet-tooltip {
+                min-width: 200px;
+                max-width: 250px;
+                font-size: 0.85rem;
+            }
+            .tooltip-title {
+                font-size: 0.95rem;
+            }
+            .tooltip-info {
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Skip link for accessibility */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: #2dc8d2;
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            z-index: 10000;
+            border-radius: 0 0 4px 0;
+        }
+        .skip-link:focus {
+            top: 0;
+        }
+
+        /* Reduced motion preference */
+        @media (prefers-reduced-motion: reduce) {
+            .custom-marker,
+            .marker-cluster-small div,
+            .marker-cluster-medium div,
+            .marker-cluster-large div,
+            #modal-overlay,
+            #modal-content {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white !important;
+                color: black !important;
+                font-size: 12pt;
+            }
+
+            .skip-link,
+            #modal-overlay,
+            nav[aria-label="Map navigation"],
+            #share-buttons,
+            .bg-blue-50,
+            button,
+            .leaflet-control-container {
+                display: none !important;
+            }
+
+            #map {
+                height: 400px !important;
+                page-break-inside: avoid;
+            }
+
+            .full-width-breakout {
+                width: 100% !important;
+                left: 0 !important;
+                margin-left: 0 !important;
+            }
+
+            .container {
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+
+            .bg-white {
+                box-shadow: none !important;
+                border: 1px solid #ddd !important;
+            }
+
+            header, section, .grid {
+                page-break-inside: avoid;
+            }
+
+            a[href]:after {
+                content: " (" attr(href) ")";
+                font-size: 10pt;
+                color: #666;
+            }
+
+            a[href^="javascript:"]:after,
+            a[href^="#"]:after {
+                content: "";
+            }
+
+            .text-\[\#2dc8d2\] {
+                color: #2dc8d2 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+
+    <!-- Google Analytics placeholder - replace UA-XXXXX-Y with your tracking ID -->
+    <!--
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-XXXXX-Y"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-XXXXX-Y');
+    </script>
+    -->
+</head>
+<body class="bg-gray-50">
+    <!-- Staging banner: remove when promoting to production -->
+    <div style="background:#f34213;color:#fff;text-align:center;font-size:0.8rem;font-weight:600;padding:6px 12px;">
+        STAGING PREVIEW &mdash; not the live map. Changes here are for review only.
+    </div>
+    <!-- Skip link for keyboard users -->
+    <a href="#map" class="skip-link">Skip to map</a>
+
+    <div class="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
+        <!-- Header -->
+        <header class="mb-6">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center gap-4 mb-2">
+                    <img src="https://njcivicinfo.org/wp-content/uploads/2024/09/NJCIC-Full-Text-Logo-300x150.png" alt="NJCIC Logo" class="h-16 md:h-20 w-auto">
+                    <h1 class="text-2xl md:text-4xl font-bold text-gray-800">
+                        NJ Civic Information Consortium grantees
+                    </h1>
+                </div>
+                <p class="text-lg text-gray-600">
+                    Interactive map of journalism and civic engagement projects across New Jersey
+                </p>
+            </div>
+        </header>
+
+        <!-- Filters -->
+        <section class="bg-white rounded-xl shadow-lg p-4 mb-6" aria-label="Filter grantees">
+            <div class="flex flex-wrap gap-4 items-end">
+                <div class="flex-1 min-w-[140px]">
+                    <label for="year-filter" class="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                    <select id="year-filter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc8d2] focus:border-transparent focus:outline-none" aria-describedby="filter-help">
+                        <option value="all">All years</option>
+                        <option value="2021">2021</option>
+                        <option value="2022">2022</option>
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[140px]">
+                    <label for="county-filter" class="block text-sm font-medium text-gray-700 mb-1">County</label>
+                    <select id="county-filter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc8d2] focus:border-transparent focus:outline-none">
+                        <option value="all">All counties</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[140px]">
+                    <label for="focus-filter" class="block text-sm font-medium text-gray-700 mb-1">Focus area</label>
+                    <select id="focus-filter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc8d2] focus:border-transparent focus:outline-none">
+                        <option value="all">All focus areas</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[140px]">
+                    <label for="status-filter" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="status-filter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc8d2] focus:border-transparent focus:outline-none" aria-describedby="status-help">
+                        <option value="all">All</option>
+                        <option value="current">Current</option>
+                    </select>
+                    <span id="status-help" class="sr-only">Current shows only grantees with a current grant. All shows every grantee.</span>
+                </div>
+                <button id="reset-filters" class="px-4 md:px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2" aria-label="Reset all filters">
+                    Reset
+                </button>
+            </div>
+            <span id="filter-help" class="sr-only">Use these filters to narrow down the grantees displayed on the map</span>
+        </section>
+
+        <!-- Map Instructions -->
+        <div class="bg-blue-50 border-l-4 border-[#2dc8d2] p-4 mb-4 rounded-lg">
+            <p class="text-gray-800 text-sm mb-2">
+                <strong>How to use this map:</strong> Click and drag to pan around New Jersey. Use the <strong>+/−</strong> buttons at the bottom to zoom in and out. Click on any marker to view grantee details, or use the <strong>◀/▶</strong> buttons to browse through all grantees. The <strong>home button</strong> resets the view to show all of New Jersey. Use the filters above to narrow down grantees by year, county, focus area, or status.
+            </p>
+            <p class="text-gray-600 text-xs">
+                <strong>Keyboard shortcuts:</strong> Arrow keys (◀/▶) to navigate grantees, +/− to zoom, Home to reset view, Escape to close popup.
+            </p>
+        </div>
+
+        <!-- Map Key -->
+        <div class="bg-white rounded-lg shadow-md p-4 mb-4">
+            <h3 class="text-sm font-bold text-gray-800 mb-3">Map key</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Grant markers -->
+                <div>
+                    <div class="flex items-center mb-2">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white mr-2" style="background: linear-gradient(135deg, #f34213 0%, #183642 100%); border: 2px solid white; box-shadow: 0 0 8px rgba(243, 66, 19, 0.5);">CG</div>
+                        <span class="text-gray-700 text-sm">Current grant</span>
+                    </div>
+                    <div class="flex items-center mb-2">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white mr-2" style="background: linear-gradient(135deg, #2dc8d2 0%, #183642 100%); border: 2px solid white;">CG</div>
+                        <span class="text-gray-700 text-sm">Completed grant</span>
+                    </div>
+                </div>
+
+                <!-- Clusters -->
+                <div>
+                    <div class="text-xs font-semibold text-gray-600 mb-2">Clusters (hover to expand):</div>
+                    <div class="space-y-1">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white mr-2" style="background-color: rgba(45, 200, 210, 0.8);">2-9</div>
+                            <span class="text-gray-700 text-sm">Small</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white mr-2" style="background-color: rgba(243, 66, 19, 0.8);">10+</div>
+                            <span class="text-gray-700 text-sm">Medium</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white mr-2" style="background-color: rgba(24, 54, 66, 0.8);">50+</div>
+                            <span class="text-gray-700 text-sm">Large</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div class="full-width-breakout my-8">
+            <div class="relative">
+                <div id="map" class="rounded-none md:rounded-xl shadow-2xl"></div>
+
+                <!-- Navigation controls with zoom -->
+                <nav class="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 md:gap-3 z-20 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-lg" aria-label="Map navigation">
+                    <button id="zoom-out" class="w-10 h-10 md:w-12 md:h-12 bg-white rounded-full text-gray-700 shadow-md flex items-center justify-center hover:bg-gray-100 transition-all transform hover:scale-105 font-bold text-lg md:text-xl focus:outline-none focus:ring-2 focus:ring-[#2dc8d2] focus:ring-offset-2" aria-label="Zoom out">
+                        −
+                    </button>
+                    <button id="prev-marker" class="w-10 h-10 md:w-12 md:h-12 bg-[#2dc8d2] rounded-full text-white shadow-md flex items-center justify-center hover:bg-[#183642] transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#183642] focus:ring-offset-2" aria-label="Previous grantee">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <div id="grantee-counter" class="hidden md:flex items-center justify-center bg-gray-100 rounded-full px-3 py-1 text-xs font-medium text-gray-600 min-w-[80px]" aria-live="polite">
+                        <span id="current-index">0</span>/<span id="total-count">0</span>
+                    </div>
+                    <button id="home-button" class="w-10 h-10 md:w-12 md:h-12 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-100 transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#2dc8d2] focus:ring-offset-2" aria-label="Reset map view to New Jersey">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:h-6 md:w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                        </svg>
+                    </button>
+                    <button id="next-marker" class="w-10 h-10 md:w-12 md:h-12 bg-[#2dc8d2] rounded-full text-white shadow-md flex items-center justify-center hover:bg-[#183642] transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#183642] focus:ring-offset-2" aria-label="Next grantee">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                    <button id="zoom-in" class="w-10 h-10 md:w-12 md:h-12 bg-white rounded-full text-gray-700 shadow-md flex items-center justify-center hover:bg-gray-100 transition-all transform hover:scale-105 font-bold text-lg md:text-xl focus:outline-none focus:ring-2 focus:ring-[#2dc8d2] focus:ring-offset-2" aria-label="Zoom in">
+                        +
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Site Footer (matches njcivicinfo.org) -->
+        <footer class="site-footer bg-[#112231] text-white rounded-t-3xl mt-20 relative overflow-hidden">
+            <!-- Top teal accent bar -->
+            <div class="h-1.5 w-full bg-gradient-to-r from-[#2dc8d2] via-[#2dc8d2] to-[#183642]"></div>
+
+            <div class="container mx-auto px-8 py-12 max-w-7xl relative z-10">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+                    <!-- Brand Column -->
+                    <div class="lg:col-span-1 space-y-4">
+                        <img src="https://njcivicinfo.org/wp-content/uploads/2024/09/NJCIC-Full-Text-Logo-300x150.png" alt="NJCIC Logo" class="h-12 w-auto brightness-0 invert opacity-90 mb-2">
+                        <p class="text-gray-400 text-sm leading-relaxed max-w-sm">
+                            1 Normal Avenue<br>
+                            Montclair, NJ 07043
+                        </p>
+                        <p class="text-sm">
+                            <a href="mailto:info@njcivicinfo.org" class="text-gray-400 hover:text-[#2dc8d2] transition-colors">info@njcivicinfo.org</a>
+                        </p>
+                    </div>
+
+                    <!-- About Us Column -->
+                    <div>
+                        <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">About us</h4>
+                        <ul class="space-y-2 text-sm text-gray-400">
+                            <li><a href="https://njcivicinfo.org/what-we-do/" class="hover:text-[#2dc8d2] transition-colors">What we do</a></li>
+                            <li><a href="https://njcivicinfo.org/impact/" class="hover:text-[#2dc8d2] transition-colors">Impact at a glance</a></li>
+                            <li><a href="https://njcivicinfo.org/about/" class="hover:text-[#2dc8d2] transition-colors">Staff & board</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Grantmaking Column -->
+                    <div>
+                        <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Grantmaking</h4>
+                        <ul class="space-y-2 text-sm text-gray-400">
+                            <li><a href="https://njcivicinfo.org/grantmaking/" class="hover:text-[#2dc8d2] transition-colors">Program priorities & strategies</a></li>
+                            <li><a href="https://njcivicinfo.org/map" class="hover:text-[#2dc8d2] transition-colors">Grantee map</a></li>
+                            <li><a href="https://njcivicinfo.org/grantmaking/#application-process" class="hover:text-[#2dc8d2] transition-colors">Application process</a></li>
+                            <li><a href="https://njcic.grantplatform.com/" class="hover:text-[#2dc8d2] transition-colors">Grant application portal</a></li>
+                            <li><a href="https://njcivicinfo.org/faqs/" class="hover:text-[#2dc8d2] transition-colors">Frequently asked questions</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Stay Connected Column -->
+                    <div>
+                        <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Stay connected</h4>
+                        <ul class="space-y-2 text-sm text-gray-400">
+                            <li><a href="https://secure.everyaction.com/-A4uO6gJP0ami_tIU_0paA2" class="hover:text-[#2dc8d2] transition-colors">Subscribe to newsletter</a></li>
+                            <li><a href="mailto:info@njcivicinfo.org" class="hover:text-[#2dc8d2] transition-colors">Contact us</a></li>
+                        </ul>
+                        <p class="pt-4 text-xs text-gray-600">Map built by <a href="https://github.com/jamditis" class="hover:text-gray-400 underline decoration-gray-700 underline-offset-2">Joe Amditis</a> | <a href="https://centerforcooperativemedia.org" class="hover:text-gray-400 underline decoration-gray-700 underline-offset-2">Center for Cooperative Media</a></p>
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-gray-600">
+                    <p>&copy; 2026 New Jersey Civic Information Consortium. All rights reserved.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-60 z-[1000] hidden items-center justify-center p-4" onclick="closeModal()" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div id="modal-content" class="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-2xl w-full relative transform scale-95 opacity-0 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition-colors" aria-label="Close modal">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h2 id="modal-title" class="text-2xl font-bold text-gray-800 mb-2"></h2>
+            <div id="modal-location" class="text-gray-600 mb-4"></div>
+            <p id="modal-description" class="text-gray-700 leading-relaxed mb-6"></p>
+            <div id="modal-details" class="space-y-2 mb-6"></div>
+            <a id="modal-link" href="#" target="_blank" rel="noopener noreferrer" class="inline-block bg-[#f34213] text-white font-semibold py-2 px-6 rounded-lg hover:bg-[#183642] transition-colors">
+                Visit website
+            </a>
+            <div id="share-buttons"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <!-- Leaflet MarkerCluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+    <!-- App JS -->
+    <script src="js/app.js?v=staging-20261109a"></script>
+
+</body>
+</html>

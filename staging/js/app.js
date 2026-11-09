@@ -113,11 +113,28 @@ function money(n) {
     return `$${Number(n || 0).toLocaleString()}`;
 }
 
-// "2023: $100,000 · 2024: $120,000" from an awardsByYear object
-function awardsByYearHtml(awards) {
+// Year tiles from an awardsByYear object ("Awarded in YEAR" fields): one tile
+// per year with the amount and a bar sized relative to the largest year.
+// Returns '' for fewer than two years (the amount/years rows already say it).
+function awardTilesHtml(awards, size = 'sm') {
     const years = Object.keys(awards || {}).sort();
-    if (!years.length) return '';
-    return years.map(y => `${y}: <span style="color: #2dc8d2;">${money(awards[y])}</span>`).join(' &middot; ');
+    if (years.length < 2) return '';
+    const max = Math.max(...years.map(y => awards[y]));
+    const label = size === 'lg' ? 'text-sm font-medium text-gray-600' : 'text-xs text-gray-600';
+    const amount = size === 'lg' ? 'text-sm' : 'text-xs';
+    const tiles = years.map(y => `
+        <div class="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-center" title="Awarded in ${y}: ${money(awards[y])}">
+            <div class="text-[11px] font-medium text-gray-500 leading-tight">${y}</div>
+            <div class="${amount} font-semibold leading-tight mt-0.5" style="color: #183642;">${money(awards[y])}</div>
+            <div class="h-1 mt-1.5 rounded-full bg-gray-100 overflow-hidden" aria-hidden="true">
+                <div class="h-1 rounded-full" style="width: ${Math.max(6, Math.round(awards[y] / max * 100))}%; background: #2dc8d2;"></div>
+            </div>
+        </div>`).join('');
+    return `
+        <div class="my-2">
+            <div class="${label} mb-1.5">Awarded by year</div>
+            <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5">${tiles}</div>
+        </div>`;
 }
 
 // Add computed fields used by the filters, markers and popups:
@@ -625,15 +642,11 @@ function openModal(grantee) {
                         <span class="text-gray-600">Amount:</span>
                         <span class="font-semibold" style="color: #2dc8d2;">$${grant.amount.toLocaleString()}</span>
                     </div>
+                    ${awardTilesHtml(grant.awardsByYear) || `
                     <div class="flex items-center justify-between text-xs mb-1">
                         <span class="text-gray-600">Years:</span>
                         <span class="font-semibold text-gray-800">${grant.years.join(', ')}</span>
-                    </div>
-                    ${awardsByYearHtml(grant.awardsByYear) ? `
-                    <div class="flex items-start justify-between gap-3 text-xs mb-1">
-                        <span class="text-gray-600 whitespace-nowrap">By year:</span>
-                        <span class="text-gray-800 text-right">${awardsByYearHtml(grant.awardsByYear)}</span>
-                    </div>` : ''}
+                    </div>`}
                     <div class="flex items-center justify-between text-xs mb-1">
                         <span class="text-gray-600">Focus:</span>
                         <span class="text-gray-700">${grant.focusAreaList.join(', ')}</span>
@@ -665,16 +678,13 @@ function openModal(grantee) {
                 <span class="text-sm font-medium text-gray-600">Funding:</span>
                 <span class="text-sm font-semibold" style="color: #2dc8d2;">$${grantee.amount.toLocaleString()}</span>
             </div>
+            ${awardTilesHtml(grantee.awardsByYear, 'lg')
+                ? `<div class="py-1 border-b border-gray-200">${awardTilesHtml(grantee.awardsByYear, 'lg')}</div>`
+                : `
             <div class="flex items-center justify-between py-2 border-b border-gray-200">
                 <span class="text-sm font-medium text-gray-600">Years:</span>
                 <span class="text-sm font-semibold text-gray-800">${yearsText}</span>
-            </div>
-            ${Object.keys(grantee.awardsByYear || {}).length > 1 ? `
-            <div class="flex items-start justify-between gap-4 py-2 border-b border-gray-200">
-                <span class="text-sm font-medium text-gray-600 whitespace-nowrap">By year:</span>
-                <span class="text-sm text-gray-800 text-right">${awardsByYearHtml(grantee.awardsByYear)}</span>
-            </div>
-            ` : ''}
+            </div>`}
             ${grantee.focusAreaList.length ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-200">
                 <span class="text-sm font-medium text-gray-600">Focus area:</span>

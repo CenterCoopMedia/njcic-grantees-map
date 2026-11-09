@@ -10,16 +10,20 @@ let currentMarkerIndex = 0;
 const IMPACT_TOTAL_FUNDING = 11880438;
 const IMPACT_TOTAL_GRANTS = 135;
 
-console.log('App.js loaded - STAGING version 16');
+console.log('App.js loaded - STAGING version 17');
 
-// STAGING: read the live data file one level up so staging always matches
-// production data. Change to 'data/grantees.json' to use a staging-only file.
-const DATA_URL = '../data/grantees.json';
+// STAGING data sources, tried in order:
+//  1. the live file one level up, used once the new sync.php has written it
+//     (it then carries projectName / isCurrent for every grant)
+//  2. staging/data/grantees.json, a snapshot built from the Airtable MAP VIEW
+//     CSV export with: node scripts/sync-airtable.js --csv <export.csv> --out staging/data/grantees.json
+const LIVE_DATA_URL = '../data/grantees.json';
+const SNAPSHOT_DATA_URL = 'data/grantees.json';
 
 // Focus areas offered in the filter. These match the options of the
 // "Focus Area" field in Airtable.
 const FOCUS_AREAS = [
-    'Community Engagement',
+    'Civic Engagement',
     'Civic News & Information',
     'Journalism Pipeline',
     'Capacity Building'
@@ -28,7 +32,8 @@ const FOCUS_AREAS = [
 // Older Airtable labels mapped to the new Focus Area options, so grantees
 // still filter correctly until every record carries the new values.
 const LEGACY_FOCUS_AREA_MAP = {
-    'civic engagement in nj communities': 'Community Engagement',
+    'civic engagement in nj communities': 'Civic Engagement',
+    'community engagement': 'Civic Engagement',
     'civic news and information reporting': 'Civic News & Information',
     'journalism pipeline': 'Journalism Pipeline',
     'blue engine tech & sustainability accelerator grant': 'Capacity Building'
@@ -69,48 +74,50 @@ function isTruthyFlag(value) {
 
 let usingCurrentFallback = false;
 
-// STAGING stopgap: project names built from the Airtable export
-// (scripts/build-staging-project-names.js). Used only for grants whose
-// grantees.json entry has no projectName yet; once sync.php writes the
-// Airtable "Project" field, the synced value wins.
-const PROJECT_NAMES_URL = 'data/project-names.json';
+// True when grantees.json was written by the new sync (Project Name + Current)
+function isNewSyncFormat(data) {
+    return (data.grantees || []).some(g => 'isCurrent' in g &&
+        ('projectName' in g || (g.grants || []).some(gr => 'projectName' in gr)));
+}
 
-async function loadProjectNameLookup() {
+async function fetchJson(url) {
+    const response = await fetch(`${url}?v=${Date.now()}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+}
+
+// Live data when it is in the new format, otherwise the staging snapshot
+async function loadGranteeData() {
+    let live = null;
     try {
-        const response = await fetch(`${PROJECT_NAMES_URL}?v=${Date.now()}`);
-        if (!response.ok) return {};
-        const data = await response.json();
-        return data.grantees || {};
+        live = await fetchJson(LIVE_DATA_URL);
+        if (isNewSyncFormat(live)) {
+            console.log('STAGING: using live data/grantees.json');
+            return live;
+        }
     } catch (e) {
-        console.warn('STAGING: could not load project-names.json', e);
-        return {};
+        console.warn('STAGING: live data unavailable', e);
+    }
+    try {
+        const snapshot = await fetchJson(SNAPSHOT_DATA_URL);
+        console.log(`STAGING: live data is in the old format; using snapshot from ${snapshot.metadata && snapshot.metadata.lastUpdated}`);
+        return snapshot;
+    } catch (e) {
+        if (live) return live;
+        throw e;
     }
 }
 
-function sameYears(a, b) {
-    const x = [...(a || [])].map(String).sort();
-    const y = [...(b || [])].map(String).sort();
-    return x.length === y.length && x.every((v, i) => v === y[i]);
+// "$100,000"-style label
+function money(n) {
+    return `$${Number(n || 0).toLocaleString()}`;
 }
 
-// Fill in missing grant.projectName values from the lookup, matching on
-// grantee name + amount, and on years when more than one grant matches.
-function applyProjectNames(grantees, lookup) {
-    grantees.forEach(grantee => {
-        const candidates = lookup[grantee.name.trim().toLowerCase()];
-        if (!candidates || !grantee.grants) return;
-        const used = new Set();
-        grantee.grants.forEach(grant => {
-            if (grant.projectName) return;
-            const amount = Math.round((grant.amount || 0) * 100) / 100;
-            const available = candidates.filter((c, i) => !used.has(i) && c.amount === amount);
-            const match = available.find(c => sameYears(c.years, grant.years)) || available[0];
-            if (match) {
-                used.add(candidates.indexOf(match));
-                grant.projectName = match.projectName;
-            }
-        });
-    });
+// "2023: $100,000 · 2024: $120,000" from an awardsByYear object
+function awardsByYearHtml(awards) {
+    const years = Object.keys(awards || {}).sort();
+    if (!years.length) return '';
+    return years.map(y => `${y}: <span style="color: #2dc8d2;">${money(awards[y])}</span>`).join(' &middot; ');
 }
 
 // Add computed fields used by the filters, markers and popups:
@@ -149,22 +156,14 @@ function prepareGrantees(grantees) {
 // Initialize the application
 async function init() {
     try {
-        // Load grantee data (cache-bust to ensure fresh data after sync)
-        const cacheBust = new Date().getTime();
-        const response = await fetch(`${DATA_URL}?v=${cacheBust}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
+        // Load grantee data (cache-busted; see loadGranteeData)
+        const data = await loadGranteeData();
 
         if (!data.grantees || !Array.isArray(data.grantees)) {
             throw new Error('Invalid data format: grantees array not found');
         }
 
         allGrantees = prepareGrantees(data.grantees);
-        applyProjectNames(allGrantees, await loadProjectNameLookup());
         filteredGrantees = [...allGrantees];
 
         // Initialize map
@@ -332,7 +331,10 @@ function populateCountyFilter() {
 function populateFocusAreaFilter() {
     const focusFilter = document.getElementById('focus-filter');
 
-    FOCUS_AREAS.forEach(area => {
+    const extras = new Set();
+    allGrantees.forEach(g => g.focusAreaList.forEach(a => { if (!FOCUS_AREAS.includes(a)) extras.add(a); }));
+
+    [...FOCUS_AREAS, ...Array.from(extras).sort()].forEach(area => {
         const option = document.createElement('option');
         option.value = area;
         option.textContent = area;
@@ -611,15 +613,14 @@ function openModal(grantee) {
             const statusClass = grant.isCurrent ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800';
             const statusText = grant.isCurrent ? 'Current' : 'Completed';
 
-            // Show project name if available
-            // Title each grant with its Airtable "Project" name; number it only if missing
+            // Title each grant with its Airtable "Project Name"; number it only if missing
             const projectName = String(grant.projectName || grant.project || '').trim();
             const projectTitle = projectName || `Grant #${index + 1}`;
 
             detailsHtml += `
                 <div class="mb-4 p-3 bg-gray-50 rounded-lg">
                     <div class="font-medium text-gray-800 mb-2">${projectTitle}</div>
-                    <div class="text-xs text-gray-700 mb-2">${grant.description}</div>
+                    ${grant.description ? `<div class="text-xs text-gray-700 mb-2">${grant.description}</div>` : ''}
                     <div class="flex items-center justify-between text-xs mb-1">
                         <span class="text-gray-600">Amount:</span>
                         <span class="font-semibold" style="color: #2dc8d2;">$${grant.amount.toLocaleString()}</span>
@@ -628,6 +629,11 @@ function openModal(grantee) {
                         <span class="text-gray-600">Years:</span>
                         <span class="font-semibold text-gray-800">${grant.years.join(', ')}</span>
                     </div>
+                    ${awardsByYearHtml(grant.awardsByYear) ? `
+                    <div class="flex items-start justify-between gap-3 text-xs mb-1">
+                        <span class="text-gray-600 whitespace-nowrap">By year:</span>
+                        <span class="text-gray-800 text-right">${awardsByYearHtml(grant.awardsByYear)}</span>
+                    </div>` : ''}
                     <div class="flex items-center justify-between text-xs mb-1">
                         <span class="text-gray-600">Focus:</span>
                         <span class="text-gray-700">${grant.focusAreaList.join(', ')}</span>
@@ -646,9 +652,15 @@ function openModal(grantee) {
         const statusClass = grantee.isCurrent ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800';
         const statusText = grantee.isCurrent ? 'Current' : 'Completed';
 
-        document.getElementById('modal-description').textContent = grantee.description;
+        document.getElementById('modal-description').textContent = grantee.description || '';
 
         const detailsHtml = `
+            ${grantee.projectName ? `
+            <div class="flex items-center justify-between gap-4 py-2 border-b border-gray-200">
+                <span class="text-sm font-medium text-gray-600">Project:</span>
+                <span class="text-sm font-semibold text-gray-800 text-right">${grantee.projectName}</span>
+            </div>
+            ` : ''}
             <div class="flex items-center justify-between py-2 border-b border-gray-200">
                 <span class="text-sm font-medium text-gray-600">Funding:</span>
                 <span class="text-sm font-semibold" style="color: #2dc8d2;">$${grantee.amount.toLocaleString()}</span>
@@ -657,6 +669,12 @@ function openModal(grantee) {
                 <span class="text-sm font-medium text-gray-600">Years:</span>
                 <span class="text-sm font-semibold text-gray-800">${yearsText}</span>
             </div>
+            ${Object.keys(grantee.awardsByYear || {}).length > 1 ? `
+            <div class="flex items-start justify-between gap-4 py-2 border-b border-gray-200">
+                <span class="text-sm font-medium text-gray-600 whitespace-nowrap">By year:</span>
+                <span class="text-sm text-gray-800 text-right">${awardsByYearHtml(grantee.awardsByYear)}</span>
+            </div>
+            ` : ''}
             ${grantee.focusAreaList.length ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-200">
                 <span class="text-sm font-medium text-gray-600">Focus area:</span>

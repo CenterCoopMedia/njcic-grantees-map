@@ -1,212 +1,104 @@
 /**
  * Airtable Sync Script for NJCIC Grantees Map
  *
- * Fetches grantee data from Airtable and merges with existing
- * geocoded location data to generate the grantees.json file.
+ * Builds grantees.json from the Airtable "Grants to date" table. This is the
+ * Node twin of server/sync.php: both use the same field names and produce
+ * the same JSON, so the map behaves the same whichever one generated it.
  *
  * Usage:
- *   node scripts/sync-airtable.js
+ *   node scripts/sync-airtable.js                      # Airtable API -> data/grantees.json
+ *   node scripts/sync-airtable.js --csv <export.csv>   # Airtable CSV export instead of the API
+ *       [--out <file>]                    output path (default data/grantees.json)
+ *       [--descriptions-from <json>]      CSV mode: borrow "Grant purpose" text from an
+ *                                         existing grantees.json (the MAP VIEW export
+ *                                         doesn't include that column)
+ *       [--dump-records <file>]           also write the records as API-shaped JSON
+ *                                         (used to test sync.php against the same input)
  *
- * Environment variables (or hardcoded for testing):
- *   AIRTABLE_PAT - Personal Access Token
- *   AIRTABLE_BASE_ID - Base ID
- *   AIRTABLE_TABLE_ID - Table ID
- *   AIRTABLE_VIEW_ID - View ID
+ * Environment variables (API mode):
+ *   AIRTABLE_PAT      Personal Access Token (required)
+ *   AIRTABLE_BASE_ID  default appryDZWgPpP0GmZw
+ *   AIRTABLE_TABLE_ID default tblFADXYCq495smGH
+ *   AIRTABLE_VIEW_ID  default viwjXro41ehrvxTfs (MAP VIEW); '-' for no view filter
  */
 
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-// Configuration - uses environment variables
-// Set these in your .env file or environment
-// By default the sync fetches every record in the table (no view filter).
-// Set AIRTABLE_VIEW_ID to a view ID (e.g. 'viwjXro41ehrvxTfs' for the MAP
-// view) to restrict the pull; leave it unset or set to '-' for no filter.
 const CONFIG = {
     PAT: process.env.AIRTABLE_PAT,
     BASE_ID: process.env.AIRTABLE_BASE_ID || 'appryDZWgPpP0GmZw',
     TABLE_ID: process.env.AIRTABLE_TABLE_ID || 'tblFADXYCq495smGH',
-    VIEW_ID: process.env.AIRTABLE_VIEW_ID || null
+    VIEW_ID: process.env.AIRTABLE_VIEW_ID || 'viwjXro41ehrvxTfs'
 };
 
-// Check for required credentials
-if (!CONFIG.PAT) {
-    console.error('ERROR: AIRTABLE_PAT environment variable is required');
-    console.error('Set it in your .env file or environment');
-    process.exit(1);
-}
-
-// Airtable field names (as they appear in the API response)
+// Airtable field names. Fields marked (optional) are used when present.
 const FIELDS = {
     GRANTEE: 'Grantee',
-    GRANT_PURPOSE: 'Grant purpose',
+    PROJECT: 'Project Name',
+    TOTAL: 'Total Awarded',
     YEARS: 'Year(s) granted:',
-    AMOUNT: 'Total awarded:',
     FOCUS_AREA: 'Focus area',
     SERVICE_AREA: 'Service area',
+    COUNTY: 'County',
+    MUNICIPALITIES: 'Municipalities',
     WEBSITE: 'Grantee website',
-    CANCELLED: 'Returned/Cancelled grant?',
-    CANCEL_REASON: 'Reason cancelled/returned:',
-    CURRENT: 'Current',
-    PROJECT: 'Project',
-    NEW_ORG: 'New org?',
     LAT: 'Lat',
     LNG: 'Long',
-    CITY: 'City'
+    CURRENT: 'Current',
+    PRESS_FORWARD: 'Press Forward Grant?',
+    GRANT_PURPOSE: 'Grant purpose',              // (optional) popup description
+    CITY: 'City',                                // (optional) preferred over Municipalities
+    NEW_ORG: 'New org?',                         // (optional)
+    CANCELLED: 'Returned/Cancelled grant?'       // (optional) excluded when checked
 };
 
-// County to city mapping for geocoding fallback
-const COUNTY_CITIES = {
-    'Atlantic County': 'Atlantic City',
-    'Bergen County': 'Hackensack',
-    'Burlington County': 'Mount Holly',
-    'Camden County': 'Camden',
-    'Cape May County': 'Cape May',
-    'Cumberland County': 'Bridgeton',
-    'Essex County': 'Newark',
-    'Gloucester County': 'Woodbury',
-    'Hudson County': 'Jersey City',
-    'Hunterdon County': 'Flemington',
-    'Mercer County': 'Trenton',
-    'Middlesex County': 'New Brunswick',
-    'Monmouth County': 'Freehold',
-    'Morris County': 'Morristown',
-    'Ocean County': 'Toms River',
-    'Passaic County': 'Paterson',
-    'Salem County': 'Salem',
-    'Somerset County': 'Somerville',
-    'Sussex County': 'Newton',
-    'Union County': 'Elizabeth',
-    'Warren County': 'Belvidere',
-    'Statewide': 'Trenton',
-    'North Jersey': 'Newark',
-    'Central Jersey': 'New Brunswick',
-    'South Jersey': 'Camden'
-};
+// Per-year amount columns: "Awarded in 2021" ... (any year found is used)
+const AWARDED_IN_PATTERN = /^Awarded in (\d{4})$/;
 
-// Default coordinates for county seats
+// Default coordinates (county seats / regional centers) when Lat/Long are blank
 const DEFAULT_COORDS = {
-    'Atlantic County': { lat: 39.3643, lng: -74.4229 },
-    'Bergen County': { lat: 40.8859, lng: -74.0435 },
-    'Burlington County': { lat: 39.9929, lng: -74.7877 },
-    'Camden County': { lat: 39.9259, lng: -75.1196 },
-    'Cape May County': { lat: 38.9351, lng: -74.9060 },
-    'Cumberland County': { lat: 39.4273, lng: -75.2341 },
-    'Essex County': { lat: 40.7357, lng: -74.1724 },
-    'Gloucester County': { lat: 39.7029, lng: -75.1118 },
-    'Hudson County': { lat: 40.7178, lng: -74.0431 },
-    'Hunterdon County': { lat: 40.5123, lng: -74.8582 },
-    'Mercer County': { lat: 40.2206, lng: -74.7597 },
-    'Middlesex County': { lat: 40.4922, lng: -74.4513 },
-    'Monmouth County': { lat: 40.2604, lng: -74.2727 },
-    'Morris County': { lat: 40.7968, lng: -74.4815 },
-    'Ocean County': { lat: 39.9526, lng: -74.1937 },
-    'Passaic County': { lat: 40.9168, lng: -74.1718 },
-    'Salem County': { lat: 39.5687, lng: -75.4671 },
-    'Somerset County': { lat: 40.5693, lng: -74.6094 },
-    'Sussex County': { lat: 41.0581, lng: -74.7524 },
-    'Union County': { lat: 40.6660, lng: -74.2009 },
-    'Warren County': { lat: 40.8293, lng: -75.0371 },
-    'Statewide': { lat: 40.2206, lng: -74.7597 },
-    'North Jersey': { lat: 40.7357, lng: -74.1724 },
-    'Central Jersey': { lat: 40.4922, lng: -74.4513 },
-    'South Jersey': { lat: 39.9259, lng: -75.1196 }
+    'Atlantic County': { lat: 39.3643, lng: -74.4229, city: 'Atlantic City' },
+    'Bergen County': { lat: 40.8859, lng: -74.0435, city: 'Hackensack' },
+    'Burlington County': { lat: 39.9929, lng: -74.7877, city: 'Mount Holly' },
+    'Camden County': { lat: 39.9259, lng: -75.1196, city: 'Camden' },
+    'Cape May County': { lat: 38.9351, lng: -74.9060, city: 'Cape May' },
+    'Cumberland County': { lat: 39.4273, lng: -75.2341, city: 'Bridgeton' },
+    'Essex County': { lat: 40.7357, lng: -74.1724, city: 'Newark' },
+    'Gloucester County': { lat: 39.7029, lng: -75.1118, city: 'Woodbury' },
+    'Hudson County': { lat: 40.7178, lng: -74.0431, city: 'Jersey City' },
+    'Hunterdon County': { lat: 40.5123, lng: -74.8582, city: 'Flemington' },
+    'Mercer County': { lat: 40.2206, lng: -74.7597, city: 'Trenton' },
+    'Middlesex County': { lat: 40.4922, lng: -74.4513, city: 'New Brunswick' },
+    'Monmouth County': { lat: 40.2604, lng: -74.2727, city: 'Freehold' },
+    'Morris County': { lat: 40.7968, lng: -74.4815, city: 'Morristown' },
+    'Ocean County': { lat: 39.9526, lng: -74.1937, city: 'Toms River' },
+    'Passaic County': { lat: 40.9168, lng: -74.1718, city: 'Paterson' },
+    'Salem County': { lat: 39.5687, lng: -75.4671, city: 'Salem' },
+    'Somerset County': { lat: 40.5693, lng: -74.6094, city: 'Somerville' },
+    'Sussex County': { lat: 41.0581, lng: -74.7524, city: 'Newton' },
+    'Union County': { lat: 40.6660, lng: -74.2009, city: 'Elizabeth' },
+    'Warren County': { lat: 40.8293, lng: -75.0371, city: 'Belvidere' },
+    'Statewide': { lat: 40.2206, lng: -74.7597, city: 'Trenton' },
+    'North Jersey': { lat: 40.7357, lng: -74.1724, city: 'Newark' },
+    'Central Jersey': { lat: 40.4922, lng: -74.4513, city: 'New Brunswick' },
+    'South Jersey': { lat: 39.9259, lng: -75.1196, city: 'Camden' }
 };
 
-/**
- * Fetch all records from Airtable with pagination
- */
-async function fetchAllRecords() {
-    let allRecords = [];
-    let offset = null;
+// ---------------------------------------------------------------------------
+// Value helpers (mirrored in server/sync.php)
+// ---------------------------------------------------------------------------
 
-    do {
-        const records = await fetchPage(offset);
-        allRecords = allRecords.concat(records.records);
-        offset = records.offset;
-        console.log(`Fetched ${allRecords.length} records...`);
-    } while (offset);
-
-    return allRecords;
+function str(value) {
+    if (Array.isArray(value)) return value.map(str).filter(Boolean).join(', ');
+    if (value === null || value === undefined) return '';
+    return String(value).replace(/\s+/g, ' ').trim();
 }
 
-/**
- * Fetch a single page of records from Airtable
- */
-function fetchPage(offset = null) {
-    return new Promise((resolve, reject) => {
-        let pathUrl = `/v0/${CONFIG.BASE_ID}/${CONFIG.TABLE_ID}?pageSize=100`;
-        if (CONFIG.VIEW_ID && CONFIG.VIEW_ID !== '-') {
-            pathUrl += `&view=${CONFIG.VIEW_ID}`;
-        }
-        if (offset) {
-            pathUrl += `&offset=${offset}`;
-        }
-
-        const options = {
-            hostname: 'api.airtable.com',
-            path: pathUrl,
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${CONFIG.PAT}`
-            }
-        };
-
-        const req = https.request(options, (res) => {
-            let data = '';
-            res.on('data', (chunk) => { data += chunk; });
-            res.on('end', () => {
-                try {
-                    resolve(JSON.parse(data));
-                } catch (e) {
-                    reject(new Error(`Failed to parse response: ${data}`));
-                }
-            });
-        });
-
-        req.on('error', reject);
-        req.end();
-    });
-}
-
-/**
- * Load existing grantees data for coordinate lookup
- */
-function loadExistingData() {
-    const dataPath = path.join(__dirname, '..', 'data', 'grantees.json');
-    try {
-        const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-        return data.grantees || [];
-    } catch (e) {
-        console.warn('Could not load existing grantees.json, starting fresh');
-        return [];
-    }
-}
-
-/**
- * Create a lookup map from existing grantees by name
- */
-function createLookupMap(existingGrantees) {
-    const lookup = new Map();
-    existingGrantees.forEach(g => {
-        // Normalize name for matching
-        const normalizedName = g.name.toLowerCase().trim();
-        lookup.set(normalizedName, {
-            lat: g.lat,
-            lng: g.lng,
-            city: g.city
-        });
-    });
-    return lookup;
-}
-
-/**
- * Interpret the Airtable "Current" field (checkbox, or a text/select/formula
- * value such as "Yes" or "Current").
- */
-function isTruthyFlag(value) {
-    if (Array.isArray(value)) return value.some(isTruthyFlag);
+// Checkbox (true), or text/select values such as "checked" / "Yes"
+function isTruthy(value) {
+    if (Array.isArray(value)) return value.some(isTruthy);
     if (typeof value === 'boolean') return value;
     if (typeof value === 'number') return value > 0;
     if (typeof value === 'string') {
@@ -215,312 +107,338 @@ function isTruthyFlag(value) {
     return false;
 }
 
-/**
- * Normalize the Focus area field, which may be a single value or a
- * multiple-select array, into an array of labels.
- */
-function toFocusAreaList(value) {
-    const parts = Array.isArray(value) ? value : String(value || '').split(';');
-    return parts.map(p => String(p).trim()).filter(Boolean);
+// Currency/number: 10000, "$10000", "$10,000.50"
+function toMoney(value) {
+    if (typeof value === 'number') return Math.round(value * 100) / 100;
+    const cleaned = str(value).replace(/[^0-9.\-]/g, '');
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
 }
 
-/**
- * Determine grant status based on years
- */
-function determineStatus(years) {
+// Coordinate: 39.8989, "39.8989", or "39,8989" (decimal comma)
+function toCoord(value) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    const s = str(value).replace(',', '.');
+    if (!s) return null;
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : null;
+}
+
+// Multiple-select (array) or comma/semicolon separated text -> trimmed list
+function toList(value, separator = /[,;]/) {
+    const parts = Array.isArray(value) ? value : str(value).split(separator);
+    const out = [];
+    parts.map(str).filter(Boolean).forEach(p => { if (!out.includes(p)) out.push(p); });
+    return out;
+}
+
+function sortedYears(list) {
+    return [...new Set(list.map(String))].filter(y => /^\d{4}$/.test(y)).sort();
+}
+
+function countyKey(county) {
+    const c = str(county);
+    if (!c) return '';
+    return /county$/i.test(c) || DEFAULT_COORDS[c] ? c : `${c} County`;
+}
+
+// "to fund X" -> "Received funding to fund X"; full sentences are kept as-is
+function describe(purpose) {
+    const p = str(purpose);
+    if (!p) return '';
+    return /^[a-z]/.test(p) ? `Received funding ${p}` : p;
+}
+
+function statusFromYears(years) {
     const currentYear = new Date().getFullYear();
-    const hasRecentYear = years.some(y => parseInt(y) >= currentYear - 1);
-    return hasRecentYear ? 'active' : 'completed';
+    return years.some(y => parseInt(y, 10) >= currentYear - 1) ? 'active' : 'completed';
 }
 
-/**
- * Get coordinates for a grantee
- */
-function getCoordinates(granteeName, county, lookup) {
-    // Try exact match from existing data
-    const normalizedName = granteeName.toLowerCase().trim();
-    if (lookup.has(normalizedName)) {
-        return lookup.get(normalizedName);
-    }
-
-    // Try partial match
-    for (const [name, coords] of lookup) {
-        if (name.includes(normalizedName) || normalizedName.includes(name)) {
-            return coords;
-        }
-    }
-
-    // Fallback to county defaults
-    const defaultCoord = DEFAULT_COORDS[county] || DEFAULT_COORDS['Statewide'];
-    const defaultCity = COUNTY_CITIES[county] || 'Trenton';
-
-    return {
-        lat: defaultCoord.lat,
-        lng: defaultCoord.lng,
-        city: defaultCity
-    };
+function formatMoney(n) {
+    return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
-/**
- * Extract base grantee name (handles "Org Name: Project Name" format)
- */
-function extractBaseGranteeName(fullName) {
-    // Check for colon-separated project name
-    if (fullName.includes(':')) {
-        return fullName.split(':')[0].trim();
-    }
-    return fullName;
-}
+// ---------------------------------------------------------------------------
+// Transform (mirrored in server/sync.php)
+// ---------------------------------------------------------------------------
 
-/**
- * Extract project name if present (after colon)
- */
-function extractProjectName(fullName) {
-    if (fullName.includes(':')) {
-        return fullName.split(':').slice(1).join(':').trim();
-    }
-    return null;
-}
+function transformRecords(records) {
+    const groups = new Map();
 
-/**
- * Transform Airtable records to grantees.json format
- */
-function transformRecords(records, lookup) {
-    // Filter out cancelled/returned grants
-    const activeRecords = records.filter(r => !r.fields[FIELDS.CANCELLED]);
+    records.forEach(record => {
+        const f = record.fields || {};
+        if (isTruthy(f[FIELDS.CANCELLED])) return;
 
-    // Group by BASE grantee name (before colon if present)
-    const granteeMap = new Map();
+        const fullName = str(f[FIELDS.GRANTEE]);
+        if (!fullName) return;
+        // "Org: Project" naming groups under "Org"
+        const colon = fullName.indexOf(':');
+        const name = colon > -1 ? fullName.slice(0, colon).trim() : fullName;
+        const nameProject = colon > -1 ? fullName.slice(colon + 1).trim() : '';
 
-    activeRecords.forEach(record => {
-        const fields = record.fields;
-        const fullName = (fields[FIELDS.GRANTEE] || '').trim();  // Trim whitespace
-        const baseName = extractBaseGranteeName(fullName);
-        // Prefer the Airtable "Project" field; fall back to "Org: Project" naming
-        const projectName = (fields[FIELDS.PROJECT] || '').trim() || extractProjectName(fullName);
-        const years = fields[FIELDS.YEARS] || [];
-        // Round to cents at the source so every downstream serialization
-        // (per-grant amount, per-grantee total, metadata totalFunding) is
-        // consistent even if Airtable ever emits a fractional-cent value.
-        const amount = Math.round((fields[FIELDS.AMOUNT] || 0) * 100) / 100;
-        const description = fields[FIELDS.GRANT_PURPOSE] || '';
-        const focusAreaList = toFocusAreaList(fields[FIELDS.FOCUS_AREA]);
-        const focusArea = focusAreaList.join('; ');
-        const isCurrent = isTruthyFlag(fields[FIELDS.CURRENT]);
-        const isNewOrg = isTruthyFlag(fields[FIELDS.NEW_ORG]);
-        const county = fields[FIELDS.SERVICE_AREA] || 'Statewide';
-        const website = fields[FIELDS.WEBSITE] || '';
-        const lat = fields[FIELDS.LAT];
-        const lng = fields[FIELDS.LNG];
-        const city = fields[FIELDS.CITY];
-
-        if (!granteeMap.has(baseName)) {
-            granteeMap.set(baseName, {
-                name: baseName,
-                county,
-                grants: [],
-                years: new Set(),
-                website,
-                focusAreas: new Set(),
-                isCurrent: false,
-                isNewOrg: false,
-                // Store coordinates from the first record we see
-                lat: lat,
-                lng: lng,
-                city: city
-            });
-        }
-
-        const grantee = granteeMap.get(baseName);
-
-        // Update coordinates if not already set
-        if (!grantee.lat && lat) grantee.lat = lat;
-        if (!grantee.lng && lng) grantee.lng = lng;
-        if (!grantee.city && city) grantee.city = city;
-
-        // A grantee is current if any of its grants is current
-        if (isCurrent) grantee.isCurrent = true;
-        if (isNewOrg) grantee.isNewOrg = true;
-
-        // Add grant details
-        grantee.grants.push({
-            projectName: projectName,  // Will be null if no project name
-            years: years,
-            amount: amount,
-            description: `Received funding ${description}`,
-            focusArea: focusArea,
-            status: determineStatus(years),
-            isCurrent: isCurrent
+        // Per-year amounts from "Awarded in YEAR" columns
+        const awardsByYear = {};
+        Object.keys(f).sort().forEach(key => {
+            const m = key.match(AWARDED_IN_PATTERN);
+            if (m) {
+                const amt = toMoney(f[key]);
+                if (amt) awardsByYear[m[1]] = amt;
+            }
         });
+        const awardsSum = Object.values(awardsByYear).reduce((s, a) => s + Math.round(a * 100), 0) / 100;
 
-        // Merge years
-        years.forEach(y => grantee.years.add(y));
+        let years = sortedYears(toList(f[FIELDS.YEARS]));
+        if (!years.length) years = Object.keys(awardsByYear).sort();
+        const amount = toMoney(f[FIELDS.TOTAL]) || awardsSum;
+        const focusAreas = toList(f[FIELDS.FOCUS_AREA], /;/);
 
-        // Merge focus areas
-        focusAreaList.forEach(a => grantee.focusAreas.add(a));
-
-        // Update website if not set
-        if (!grantee.website && website) {
-            grantee.website = website;
-        }
-    });
-
-    // Convert to final format
-    const grantees = [];
-
-    granteeMap.forEach((grantee, name) => {
-        // Use coordinates from Airtable, fallback to lookup or defaults
-        let lat = grantee.lat;
-        let lng = grantee.lng;
-        let city = grantee.city;
-
-        // Fallback to lookup if Airtable doesn't have coordinates
-        if (!lat || !lng) {
-            const coords = getCoordinates(name, grantee.county, lookup);
-            lat = lat || coords.lat;
-            lng = lng || coords.lng;
-            city = city || coords.city;
-        }
-
-        const yearsArray = Array.from(grantee.years).sort();
-        const totalAmount = grantee.grants.reduce(
-            (sum, g) => sum + Math.round((g.amount || 0) * 100),
-            0
-        ) / 100;
-        const focusAreasArray = Array.from(grantee.focusAreas);
-
-        const result = {
-            name: grantee.name,
-            county: grantee.county,
-            city: city || '',
-            years: yearsArray,
-            amount: totalAmount,
-            lat: lat,
-            lng: lng,
-            status: determineStatus(yearsArray),
-            website: grantee.website,
-            focusArea: focusAreasArray.join('; '),
-            isCurrent: grantee.isCurrent,
-            isNewOrg: grantee.isNewOrg
+        const grant = {
+            projectName: str(f[FIELDS.PROJECT]) || nameProject || null,
+            years,
+            amount,
+            awardsByYear,
+            description: describe(f[FIELDS.GRANT_PURPOSE]),
+            focusArea: focusAreas.join('; '),
+            status: statusFromYears(years),
+            isCurrent: isTruthy(f[FIELDS.CURRENT]),
+            pressForward: isTruthy(f[FIELDS.PRESS_FORWARD])
         };
 
-        // Handle multiple grants
-        if (grantee.grants.length > 1) {
-            result.description = `This organization received ${grantee.grants.length} grants totaling $${totalAmount.toLocaleString()}.`;
-            result.grants = grantee.grants.map((g, i) => ({
-                id: i + 1,
-                projectName: g.projectName,
-                years: g.years,
-                amount: g.amount,
-                description: g.description,
-                focusArea: g.focusArea,
-                status: g.status,
-                isCurrent: g.isCurrent
-            }));
-            result.totalAmount = totalAmount;
-            result.focusAreas = focusAreasArray;
-            result.hasMultipleGrants = true;
-            result.grantCount = grantee.grants.length;
-        } else {
-            result.description = grantee.grants[0].description;
+        const key = name.toLowerCase();
+        if (!groups.has(key)) {
+            groups.set(key, {
+                name, records: [], website: '', serviceArea: '', county: '',
+                lat: null, lng: null, city: '', isNewOrg: false
+            });
+        }
+        const g = groups.get(key);
+        g.records.push({ grant, focusAreas });
+
+        const lat = toCoord(f[FIELDS.LAT]);
+        const lng = toCoord(f[FIELDS.LNG]);
+        if (g.lat === null && lat !== null && lng !== null) { g.lat = lat; g.lng = lng; }
+        if (!g.website) g.website = str(f[FIELDS.WEBSITE]);
+        if (!g.serviceArea) g.serviceArea = str(f[FIELDS.SERVICE_AREA]);
+        if (!g.county) g.county = str(f[FIELDS.COUNTY]);
+        if (!g.city) g.city = str(f[FIELDS.CITY]) || (toList(f[FIELDS.MUNICIPALITIES])[0] || '');
+        if (isTruthy(f[FIELDS.NEW_ORG])) g.isNewOrg = true;
+    });
+
+    const grantees = [];
+    groups.forEach(g => {
+        // Largest / longest-running grant first
+        const grants = g.records.map(r => r.grant)
+            .sort((a, b) => b.amount - a.amount || a.years.join().localeCompare(b.years.join()));
+
+        const serviceArea = g.serviceArea || 'Statewide';
+        let { lat, lng, city } = g;
+        if (lat === null || lng === null) {
+            const fallback = DEFAULT_COORDS[countyKey(g.county)] || DEFAULT_COORDS[serviceArea] || DEFAULT_COORDS['Statewide'];
+            lat = fallback.lat; lng = fallback.lng;
+            city = city || fallback.city;
         }
 
+        const years = sortedYears(grants.flatMap(gr => gr.years));
+        const totalAmount = grants.reduce((s, gr) => s + Math.round(gr.amount * 100), 0) / 100;
+        const focusAreas = [];
+        grants.forEach(gr => toList(gr.focusArea, /;/).forEach(a => { if (!focusAreas.includes(a)) focusAreas.push(a); }));
+        const awardsByYear = {};
+        grants.forEach(gr => Object.entries(gr.awardsByYear).forEach(([y, a]) => {
+            awardsByYear[y] = Math.round(((awardsByYear[y] || 0) + a) * 100) / 100;
+        }));
+        const sortedAwards = {};
+        Object.keys(awardsByYear).sort().forEach(y => { sortedAwards[y] = awardsByYear[y]; });
+
+        const result = {
+            name: g.name,
+            county: serviceArea,
+            city,
+            years,
+            amount: totalAmount,
+            lat,
+            lng,
+            status: statusFromYears(years),
+            isCurrent: grants.some(gr => gr.isCurrent),
+            isNewOrg: g.isNewOrg,
+            pressForward: grants.some(gr => gr.pressForward),
+            website: g.website,
+            focusArea: focusAreas.join('; '),
+            focusAreas,
+            awardsByYear: sortedAwards
+        };
+
+        if (grants.length > 1) {
+            result.description = `This organization received ${grants.length} grants totaling $${formatMoney(totalAmount)}.`;
+            result.grants = grants.map((gr, i) => ({ id: i + 1, ...gr }));
+            result.totalAmount = totalAmount;
+            result.hasMultipleGrants = true;
+            result.grantCount = grants.length;
+        } else {
+            result.projectName = grants[0].projectName;
+            result.description = grants[0].description;
+        }
         grantees.push(result);
     });
 
-    // Sort by name
-    grantees.sort((a, b) => a.name.localeCompare(b.name));
-
+    // Case-insensitive code-point order (same as sync.php's strcmp on lowercase)
+    const sortKey = n => n.toLowerCase();
+    grantees.sort((a, b) => (sortKey(a.name) < sortKey(b.name) ? -1 : sortKey(a.name) > sortKey(b.name) ? 1 : 0));
     return grantees;
 }
 
-/**
- * Calculate metadata
- */
-function calculateMetadata(grantees) {
-    // Accumulate in integer cents to avoid binary-float rounding drift
-    // (e.g. 12210438.629999999 instead of 12210438.63).
-    const totalFundingCents = grantees.reduce(
-        (sum, g) => sum + Math.round((g.amount || 0) * 100),
-        0
-    );
-    const totalFunding = totalFundingCents / 100;
-    // Count total grants across all grantees
-    const totalGrants = grantees.reduce((sum, g) => {
-        if (g.hasMultipleGrants && g.grantCount) {
-            return sum + g.grantCount;
-        }
-        return sum + 1;
-    }, 0);
-
+function calculateMetadata(grantees, source) {
+    const totalFunding = grantees.reduce((s, g) => s + Math.round(g.amount * 100), 0) / 100;
+    const totalGrants = grantees.reduce((s, g) => s + (g.grantCount || 1), 0);
     return {
         totalGrantees: grantees.length,
-        totalFunding: totalFunding,
+        totalFunding,
         officialTotalFunding: 11880438, // Official NJCIC figure
-        totalGrants: totalGrants,
+        totalGrants,
+        currentGrantees: grantees.filter(g => g.isCurrent).length,
         lastUpdated: new Date().toISOString().split('T')[0],
-        dataSource: 'Airtable - Grants to date: NJ Civic Info Consortium',
+        dataSource: source,
         note: 'Data synced from Airtable. Organizations with multiple grants are consolidated.'
     };
 }
 
-/**
- * Main sync function
- */
-async function syncFromAirtable() {
-    console.log('Starting Airtable sync...\n');
+// ---------------------------------------------------------------------------
+// Inputs
+// ---------------------------------------------------------------------------
 
-    // Load existing data for coordinate lookup
-    const existingGrantees = loadExistingData();
-    const lookup = createLookupMap(existingGrantees);
-    console.log(`Loaded ${existingGrantees.length} existing grantees for coordinate lookup\n`);
-
-    // Fetch all records from Airtable
-    console.log('Fetching records from Airtable...');
-    const records = await fetchAllRecords();
-    console.log(`\nFetched ${records.length} total records from Airtable\n`);
-
-    // Transform records
-    console.log('Transforming records...');
-    const grantees = transformRecords(records, lookup);
-    console.log(`Created ${grantees.length} grantee entries\n`);
-
-    // Calculate metadata
-    const metadata = calculateMetadata(grantees);
-
-    // Create output
-    const output = {
-        grantees: grantees,
-        metadata: metadata
-    };
-
-    // Write to file
-    const outputPath = path.join(__dirname, '..', 'data', 'grantees.json');
-    fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
-    console.log(`\nWritten to ${outputPath}`);
-
-    // Summary
-    console.log('\n=== Sync Summary ===');
-    console.log(`Total grantees: ${metadata.totalGrantees}`);
-    console.log(`Total grants: ${metadata.totalGrants}`);
-    console.log(`Total funding: $${metadata.totalFunding.toLocaleString()}`);
-    console.log(`Last updated: ${metadata.lastUpdated}`);
-
-    // Check for grantees missing coordinates
-    const missingCoords = grantees.filter(g => {
-        const normalizedName = g.name.toLowerCase().trim();
-        return !lookup.has(normalizedName);
+function fetchPage(offset) {
+    return new Promise((resolve, reject) => {
+        let p = `/v0/${CONFIG.BASE_ID}/${CONFIG.TABLE_ID}?pageSize=100`;
+        if (CONFIG.VIEW_ID && CONFIG.VIEW_ID !== '-') p += `&view=${encodeURIComponent(CONFIG.VIEW_ID)}`;
+        if (offset) p += `&offset=${encodeURIComponent(offset)}`;
+        const req = https.request({
+            hostname: 'api.airtable.com', path: p, method: 'GET',
+            headers: { Authorization: `Bearer ${CONFIG.PAT}` }
+        }, res => {
+            let data = '';
+            res.on('data', c => { data += c; });
+            res.on('end', () => {
+                if (res.statusCode !== 200) return reject(new Error(`Airtable HTTP ${res.statusCode}: ${data}`));
+                try { resolve(JSON.parse(data)); } catch (e) { reject(new Error(`Bad JSON: ${data}`)); }
+            });
+        });
+        req.on('error', reject);
+        req.end();
     });
-
-    if (missingCoords.length > 0) {
-        console.log(`\n⚠️  ${missingCoords.length} grantees using default county coordinates:`);
-        missingCoords.forEach(g => console.log(`   - ${g.name} (${g.county})`));
-        console.log('\nConsider running the geocoding script to get precise coordinates.');
-    }
 }
 
-// Run sync
-syncFromAirtable().catch(err => {
-    console.error('Sync failed:', err);
-    process.exit(1);
-});
+async function fetchAllRecords() {
+    let all = [], offset = null;
+    do {
+        const page = await fetchPage(offset);
+        all = all.concat(page.records || []);
+        offset = page.offset;
+        console.log(`Fetched ${all.length} records...`);
+    } while (offset);
+    return all;
+}
+
+// Minimal RFC 4180 CSV parser
+function parseCsv(text) {
+    const rows = [];
+    let row = [], field = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (q) {
+            if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+            else if (c === '"') q = false;
+            else field += c;
+        } else if (c === '"') q = true;
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\n' || c === '\r') {
+            if (c === '\r' && text[i + 1] === '\n') i++;
+            row.push(field); rows.push(row); row = []; field = '';
+        } else field += c;
+    }
+    if (field || row.length) { row.push(field); rows.push(row); }
+    const [header, ...body] = rows;
+    return body.filter(r => r.some(v => v.trim())).map((r, i) => {
+        const fields = {};
+        header.forEach((h, j) => { if ((r[j] || '') !== '') fields[h.trim()] = r[j]; });
+        return { id: `csv-row-${i + 2}`, fields };
+    });
+}
+
+// CSV mode: borrow descriptions from an existing grantees.json, matched by
+// grantee name + amount (then name + years) because the MAP VIEW export
+// leaves out "Grant purpose".
+function borrowDescriptions(records, jsonPath) {
+    const old = JSON.parse(fs.readFileSync(jsonPath, 'utf8')).grantees || [];
+    const pool = new Map();
+    old.forEach(g => {
+        const grants = g.grants || [{ amount: g.amount, years: g.years, description: g.description }];
+        pool.set(str(g.name).toLowerCase(), grants.map(gr => ({ ...gr, used: false })));
+    });
+    let matched = 0;
+    records.forEach(r => {
+        const f = r.fields;
+        if (f[FIELDS.GRANT_PURPOSE]) return;
+        const list = pool.get(str(f[FIELDS.GRANTEE]).split(':')[0].trim().toLowerCase()) || [];
+        const amount = toMoney(f[FIELDS.TOTAL]);
+        const years = sortedYears(toList(f[FIELDS.YEARS])).join();
+        const hit = list.find(g => !g.used && sortedYears(g.years || []).join() === years && toMoney(g.amount) === amount)
+            || list.find(g => !g.used && sortedYears(g.years || []).join() === years)
+            || list.find(g => !g.used && toMoney(g.amount) === amount);
+        if (hit && hit.description) {
+            hit.used = true;
+            // stored descriptions already carry the "Received funding" prefix
+            f[FIELDS.GRANT_PURPOSE] = str(hit.description).replace(/^Received funding (?=[A-Z])/, '');
+            matched++;
+        }
+    });
+    console.log(`Borrowed descriptions for ${matched} of ${records.length} records`);
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+function arg(name) {
+    const i = process.argv.indexOf(name);
+    return i > -1 ? process.argv[i + 1] : null;
+}
+
+async function main() {
+    const csvPath = arg('--csv');
+    const outPath = path.resolve(arg('--out') || path.join(__dirname, '..', 'data', 'grantees.json'));
+    let records, source;
+
+    if (csvPath) {
+        records = parseCsv(fs.readFileSync(csvPath, 'utf8').replace(/^﻿/, ''));
+        source = `Airtable CSV export (${path.basename(csvPath)})`;
+        const descFrom = arg('--descriptions-from');
+        if (descFrom) borrowDescriptions(records, descFrom);
+    } else {
+        if (!CONFIG.PAT) {
+            console.error('ERROR: AIRTABLE_PAT environment variable is required (or use --csv)');
+            process.exit(1);
+        }
+        records = await fetchAllRecords();
+        source = 'Airtable - Grants to date: NJ Civic Info Consortium';
+    }
+    console.log(`Loaded ${records.length} records`);
+
+    const dumpPath = arg('--dump-records');
+    if (dumpPath) fs.writeFileSync(dumpPath, JSON.stringify({ records }, null, 2));
+
+    const grantees = transformRecords(records);
+    if (!grantees.length) throw new Error('No grantees produced; refusing to overwrite output');
+    const metadata = calculateMetadata(grantees, source);
+
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, JSON.stringify({ grantees, metadata }, null, 2));
+
+    console.log(`\nWritten to ${outPath}`);
+    console.log(`Grantees: ${metadata.totalGrantees} | Grants: ${metadata.totalGrants} | ` +
+        `Current: ${metadata.currentGrantees} | Funding: $${formatMoney(metadata.totalFunding)}`);
+}
+
+if (require.main === module) {
+    main().catch(err => { console.error('Sync failed:', err.message); process.exit(1); });
+}
+
+module.exports = { transformRecords, calculateMetadata, parseCsv };

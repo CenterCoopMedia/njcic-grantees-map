@@ -79,6 +79,10 @@ self.addEventListener('fetch', event => {
     // away; the cached copy is only an offline fallback. Data URLs carry a
     // cache-busting ?v= and are not stored.
     const url = new URL(event.request.url);
+    const stagingPath = new URL('staging/', self.registration.scope).pathname;
+    if (url.origin === self.location.origin && url.pathname.startsWith(stagingPath)) {
+        return;
+    }
     if (event.request.mode === 'navigate' || url.pathname.endsWith('.json')) {
         event.respondWith(
             fetch(event.request)

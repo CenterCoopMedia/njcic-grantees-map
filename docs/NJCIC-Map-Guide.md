@@ -24,18 +24,20 @@ The map gets its data directly from the Airtable base "Grants to date: NJ Civic 
 2. Go to the **"MAP VIEW"** view (starred for easy access)
 3. Add a new row with the grantee's information:
    - **Grantee** - Organization name
+   - **Project Name** - Title shown for this grant in the map popup
    - **Grant purpose** - Description of what the grant funds
-   - **Year(s) granted** - Select the year(s)
-   - **Total awarded** - Dollar amount
-   - **Focus area** - Category of work
+   - **Year(s) granted:** - Select the year(s)
+   - **Awarded in 2021 … Awarded in 2026** - Amount awarded each year (shown as year tiles in the popup)
+   - **Total Awarded** - Total dollar amount for this grant
+   - **Focus area** - Civic Engagement, Civic News & Information, Journalism Pipeline or Capacity Building
+   - **Current** - Check if the grant is current (see below)
    - **Service area** - County or region served
+   - **County** and **Municipalities** - Used for the location label and as a fallback location
    - **Grantee website** - URL (optional)
    - **Lat** - Latitude coordinate (see below)
    - **Long** - Longitude coordinate (see below)
-   - **City** - City name
-   - **New org?** - Check this to highlight them as a new grantee (see below)
 
-     ![New grantee map badge](https://i.imgur.com/cs29Rze.png)
+*Don't rename these fields. The sync looks them up by name, so a renamed field drops off the map.*
 
 ### Getting coordinates for new grantees
 
@@ -56,19 +58,16 @@ Simply edit the fields in Airtable. Changes to names, amounts, descriptions, web
 
 To remove a grantee from the map, check the **"Returned/Cancelled grant?"** checkbox in Airtable. The grantee will no longer appear on the map but the record stays in Airtable for your records.
 
-### Highlighting new grantees
+### Current and completed grants
 
-To highlight a grantee as "new" on the map:
+The **Current** checkbox controls how a grantee appears:
 
-1. Check the **"New org?"** checkbox in Airtable
-2. Run a sync (or wait for the daily 7am sync)
+- **Current grant** - an **orange marker** with a soft glow, and a "Current grant" label in the tooltip and popup
+- **Completed grant** - a **teal marker**
 
-New grantees will appear with:
-- An **orange marker** (instead of teal) with a pulsing glow effect
-- A **"NEW" badge** on the marker
-- A **"New grantee"** label in the tooltip and popup
+An organization with several grants shows as current if **any** of its grants is checked as Current. The **Status** filter above the map offers **All** and **Current**.
 
-*Tip: Uncheck "New org?" after a few months when you no longer want to highlight them as new.*
+*Tip: Uncheck "Current" when a grant period ends.*
 
 ---
 
@@ -88,8 +87,9 @@ If you need changes to appear right away (before the next morning), you can trig
 
 Go to this URL in your browser (bookmark this for easy access):
 ```
-https://njcivicinfo.org/map/sync.php?key={ASK_JOE_FOR_THE_KEY}
+https://njcivicinfo.org/map/sync.php?key={SYNC_KEY}
 ```
+The key is stored in the NJCIC password manager (ask Madi or Joe).
 
 You'll see a message confirming the sync completed with details like:
 - Number of grantees synced
@@ -110,11 +110,13 @@ Then refresh the map page to see your changes.
 
 For each grantee, the map shows:
 - **Organization name**
-- **Location** (city and county)
-- **Total funding received**
-- **Grant years**
+- **Location** (city and service area)
+- **Current grant** label, when any grant is checked as Current
+- **Project Name** for each grant
+- **Total funding received** (from Total Awarded)
+- **Awarded by year** tiles (from the Awarded in YEAR fields)
 - **Focus area**
-- **Project description**
+- **Project description** (from Grant purpose)
 - **Link to website** (if provided)
 
 Grantees with multiple grants are grouped together and show all their grant details in one popup.
@@ -139,23 +141,21 @@ Grantees with multiple grants are grouped together and show all their grant deta
 
 ## Important notes
 
-### The impact section is separate (for now)
+### Only MAP VIEW records appear
 
-The "Impact at a glance" statistics below the map (total invested, stories published, etc.) are **not** currently pulled from Airtable. These are official NJCIC figures that are updated manually in the website code. Contact Joe if these need to be updated.
-
-**Planned enhancement:** In a future version, the impact section will be connected to Airtable data so these statistics update automatically along with the grantee information.
-
-### Cancelled/returned grants
-
-Grantees marked as "Returned/Cancelled" in Airtable will **not** appear on the map, but they are still counted in the official total investment figure in the impact section.
+The sync reads the **MAP VIEW** view. A record filtered out of that view won't appear on the map. A grant with "Returned/Cancelled grant?" checked is also left off.
 
 ### Multiple grants to same organization
 
 If an organization receives multiple grants, they appear as a single marker on the map. Clicking on them shows details for all their grants.
 
-### Project names
+### Grouping and project names
 
-If a grantee name includes a colon (like "Center for Cooperative Media: Spanish Translation Service"), the system treats the part before the colon as the organization name and groups all their grants together.
+Grants are grouped into one marker when the **Grantee** name is exactly the same (extra spaces are ignored). Each grant in the popup is titled with its **Project Name**. Names that differ, like "Hammonton Gazette" and "Hammonton Gazette (Noticias)", stay as separate markers.
+
+### Don't upload grantees.json by hand
+
+The sync rewrites `data/grantees.json` every morning, so a hand-uploaded file is replaced at the next sync. Make changes in Airtable instead.
 
 ---
 
@@ -182,7 +182,9 @@ If a grantee name includes a colon (like "Center for Cooperative Media: Spanish 
 ### "The sync URL gives an error"
 
 - Make sure you're using the exact URL with the correct key
-- If you see "Unauthorized," the key may have been changed - contact Joe
+- **"Forbidden"** - the key is wrong or has been changed
+- **"Airtable HTTP 401/403"** - the Airtable token in sync.php has expired or was deleted; create a new read-only token for the grants base and put it in sync.php on the server
+- **"Cannot write … grantees.json"** - the web server lost permission to save in the map's `data` folder; in FileZilla set the `data` folder to 777 and `grantees.json` to 666
 
 ---
 
@@ -193,7 +195,7 @@ If a grantee name includes a colon (like "Center for Cooperative Media: Spanish 
 | Add new grantee | Add row in Airtable (MAP VIEW) with all fields filled |
 | Edit grantee info | Edit the row directly in Airtable |
 | Remove grantee | Check "Returned/Cancelled grant?" in Airtable |
-| Highlight as new | Check "New org?" in Airtable |
+| Mark as current | Check "Current" in Airtable |
 | Get coordinates | Use latlong.net to look up the city |
 | Force immediate sync | Visit sync.php URL or use GitHub Actions |
 | View the map | https://njcivicinfo.org/map/ |
@@ -212,4 +214,4 @@ If a grantee name includes a colon (like "Center for Cooperative Media: Spanish 
 
 ---
 
-*Last updated: December 2025*
+*Last updated: November 2026*

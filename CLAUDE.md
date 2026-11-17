@@ -122,6 +122,16 @@ npm run sync:coords
 - Added app.js versioning for cache-busting on JS updates
 - Added "New org?" feature to highlight new grantees with orange markers and badges
 
+## November 2026 update
+
+- Map key: "Current grant" (orange) / "Completed grant" (teal) from the Airtable **Current** checkbox; status column removed
+- Filters: 2026 added; Focus area = Civic Engagement, Civic News & Information, Journalism Pipeline, Capacity Building; Status = All / Current
+- Popups: grants titled by **Project Name**; amounts from **Total Awarded**; "Awarded by year" tiles from **Awarded in YEAR**
+- New `server/sync.php` (template with placeholders, committed) mirrors `scripts/sync-airtable.js` (which also has `--csv` mode); the deployed copy holds the real token/key
+- Server `data/` folder must be writable by www-data (777 folder / 666 grantees.json on Nestify)
+- `staging/` holds the preview copy (noindex, no service worker)
+- sw.js v3: network-first for pages and JSON
+
 ## Planned enhancements
 
 - Connect impact section statistics to Airtable data (currently hardcoded)

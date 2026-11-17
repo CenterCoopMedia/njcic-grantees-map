@@ -15,6 +15,9 @@ nul
 
 # Server-side files with credentials (deploy via FTP only)
 sync.php
+sync-config.php
+# ...except the template in server/, which only holds placeholders
+!server/sync.php
 
 # Data exports
 *.csv

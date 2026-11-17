@@ -341,24 +341,20 @@ function write_json_atomically($path, array $data) {
     // map never reads a half-written file. Needs write permission on the folder.
     if (is_writable($dir)) {
         if (is_file($path)) @copy($path, $path . '.bak');      // keep the previous version
-        $tmp = $path . '.tmp';
-        if (@file_put_contents($tmp, $json, LOCK_EX) !== false && @rename($tmp, $path)) return 'replaced';
-        @unlink($tmp);
-    }
-
-    // Fallback: overwrite the existing file in place. Needs write permission
-    // on grantees.json only (not on the folder).
-    if (is_file($path) && is_writable($path) && @file_put_contents($path, $json, LOCK_EX) !== false) {
-        return 'overwritten in place';
+        $tmp = tempnam($dir, '.grantees-');
+        if ($tmp !== false) {
+            if (@file_put_contents($tmp, $json, LOCK_EX) === strlen($json)
+                && @chmod($tmp, 0644) && @rename($tmp, $path)) return 'replaced';
+            @unlink($tmp);
+        }
     }
 
     $who = function_exists('posix_geteuid') && function_exists('posix_getpwuid')
         ? (posix_getpwuid(posix_geteuid())['name'] ?? posix_geteuid()) : get_current_user();
     throw new RuntimeException(
         "Cannot write $path. The web server (running as \"$who\") needs write permission on the " .
-        "data folder (" . (is_writable($dir) ? 'writable' : 'NOT writable') . ") or on grantees.json (" .
-        (is_file($path) ? (is_writable($path) ? 'writable' : 'NOT writable') : 'missing') . "). " .
-        "In FileZilla: right-click the data folder > File permissions > 775 (or 777), and grantees.json > 664 (or 666)."
+        "data folder (" . (is_writable($dir) ? 'writable' : 'NOT writable') . ") for complete-file replacement. " .
+        "Ask the hosting administrator to configure directory ownership or a shared group."
     );
 }
 

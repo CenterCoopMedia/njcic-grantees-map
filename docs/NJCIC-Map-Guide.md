@@ -8,6 +8,8 @@ The NJCIC Grantees Map is an interactive map that displays all Consortium grante
 
 **https://njcivicinfo.org/map/**
 
+The server-side sync owns the public data. This guide describes the interface in this repository. During the November 17, 2026 public readback, the live HTML and JavaScript still used the older marker key and filters. See [sync ownership](sync-ownership.md) for the current data flow and publishing status.
+
 The map gets its data directly from the Airtable base "Grants to date: NJ Civic Info Consortium." When you update information in Airtable, those changes automatically appear on the map.
 
 **Important:** The map pulls data from the **"MAP VIEW"** view in Airtable (starred for easy access). Make sure you're working in this view when editing grantee information.
@@ -73,9 +75,9 @@ An organization with several grants shows as current if **any** of its grants is
 
 ## When do changes appear on the map?
 
-**Automatic sync:** Every day at **7:00 AM Eastern**, the map automatically pulls the latest data from Airtable.
+**Automatic sync:** GitHub Actions schedules the server endpoint at **12:00 UTC daily**: 7 AM EST or 8 AM EDT. Scheduled runs may start later.
 
-**What this means:** If you update Airtable on Monday afternoon, the changes will appear on the map by Tuesday morning at 7am.
+Changes appear after a successful sync. If you update Airtable on Monday afternoon, check the map after Tuesday's scheduled run.
 
 ---
 
@@ -100,7 +102,7 @@ Then refresh the map page to see your changes.
 
 ### Option 2: Use GitHub Actions (for technical staff)
 
-1. Go to https://github.com/jamditis/njcic-grantees-map/actions
+1. Go to https://github.com/CenterCoopMedia/njcic-grantees-map/actions
 2. Click "Sync Airtable Data"
 3. Click "Run workflow" → "Run workflow"
 
@@ -151,7 +153,7 @@ If an organization receives multiple grants, they appear as a single marker on t
 
 ### Grouping and project names
 
-Grants are grouped into one marker when the **Grantee** name is exactly the same (extra spaces are ignored). Each grant in the popup is titled with its **Project Name**. Names that differ, like "Hammonton Gazette" and "Hammonton Gazette (Noticias)", stay as separate markers.
+Grants are grouped by the **Grantee** name before any colon, ignoring case and extra spaces. Each grant in the popup is titled with its **Project Name**. Names that differ, like "Hammonton Gazette" and "Hammonton Gazette (Noticias)", stay as separate markers.
 
 ### Don't upload grantees.json by hand
 
@@ -184,7 +186,7 @@ The sync rewrites `data/grantees.json` every morning, so a hand-uploaded file is
 - Make sure you're using the exact URL with the correct key
 - **"Forbidden"** - the key is wrong or has been changed
 - **"Airtable HTTP 401/403"** - the Airtable token in sync.php has expired or was deleted; create a new read-only token for the grants base and put it in sync.php on the server
-- **"Cannot write … grantees.json"** - the web server lost permission to save in the map's `data` folder; in FileZilla set the `data` folder to 777 and `grantees.json` to 666
+- **"Cannot write … grantees.json"** - ask the hosting administrator to restore the web server's write access to the map's `data` folder using ownership or a shared group. Keep the folder private from unrelated users.
 
 ---
 

@@ -84,6 +84,11 @@ function money(n) {
     return `$${Number(n || 0).toLocaleString()}`;
 }
 
+function escapeHtml(value) {
+    const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(value).replace(/[&<>"']/g, character => entities[character]);
+}
+
 // Year tiles from an awardsByYear object ("Awarded in YEAR" fields): one tile
 // per year with the amount and a bar sized relative to the largest year.
 // Returns '' for fewer than two years (the amount/years rows already say it).
@@ -603,7 +608,7 @@ function openModal(grantee) {
 
             // Title each grant with its Airtable "Project Name"; number it only if missing
             const projectName = String(grant.projectName || grant.project || '').trim();
-            const projectTitle = projectName || `Grant #${index + 1}`;
+            const projectTitle = escapeHtml(projectName || `Grant #${index + 1}`);
 
             detailsHtml += `
                 <div class="mb-4 p-3 bg-gray-50 rounded-lg">
@@ -642,7 +647,7 @@ function openModal(grantee) {
             ${grantee.projectName ? `
             <div class="flex items-center justify-between gap-4 py-2 border-b border-gray-200">
                 <span class="text-sm font-medium text-gray-600">Project:</span>
-                <span class="text-sm font-semibold text-gray-800 text-right">${grantee.projectName}</span>
+                <span class="text-sm font-semibold text-gray-800 text-right">${escapeHtml(grantee.projectName)}</span>
             </div>
             ` : ''}
             <div class="flex items-center justify-between py-2 border-b border-gray-200">

@@ -19,9 +19,15 @@ test('the production worker leaves preview pages, scripts, and data to the brows
     };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8'), context);
     const handler = handlers.get('fetch');
-    for (const resource of ['staging/', 'staging/index.html', 'staging/js/app.js?v=preview', 'staging/data/grantees.json']) {
+    const previews = [
+        ['staging/', 'navigate'],
+        ['staging/index.html', 'navigate'],
+        ['staging/js/app.js?v=preview', 'no-cors'],
+        ['staging/data/grantees.json', 'cors']
+    ];
+    for (const [resource, mode] of previews) {
         handler({
-            request: { method: 'GET', url: `https://example.org/map/${resource}`, mode: 'navigate' },
+            request: { method: 'GET', url: `https://example.org/map/${resource}`, mode },
             respondWith() { assert.fail(`preview request was intercepted: ${resource}`); }
         });
     }
